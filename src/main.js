@@ -1,5 +1,4 @@
-// The welcome screen, copied from Inventory. Not wired up yet, so every control is disabled under the "In progress" banner.
-const GUIDES_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Inventory/guides.html';
+// The welcome screen, copied from Inventory. Not wired up yet, so every control is disabled under the development banner.
 const PROGRAMS = ['FTC', 'FRC', 'FLL', 'Other'];
 
 const app = document.querySelector('#app');
@@ -34,7 +33,7 @@ function renderWelcome() {
         <h2>Just looking?</h2>
         <button class="secondary">Try the demo</button>
       </div>
-      <a class="guides-link" href="${GUIDES_URL}" target="_blank" rel="noopener">Guides</a>
+      <button class="guides-link">Guides</button>
     </main>`;
   for (const control of app.querySelectorAll('button, input, select')) control.disabled = true;
 }

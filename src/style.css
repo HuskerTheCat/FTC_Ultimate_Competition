@@ -86,7 +86,7 @@ body:has(> #app > .center)::after { background: var(--topo-line); opacity: var(-
 .brand .app-name { display: block; font-weight: 500; color: var(--accent); }
 /* Guides button, top right of the first screens. */
 #app:has(> .center) { position: relative; }
-.guides-link { position: absolute; top: 16px; right: 24px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 600; text-decoration: none; }
+.guides-link { position: absolute; top: 16px; right: 24px; min-height: 0; padding: 6px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 600; }
 .guides-link:hover { background: var(--raised); }
 /* Phones: level with the logo above the title, clear of it. */
 @media (max-width: 759px) { .guides-link { top: 67px; } }
@@ -165,7 +165,7 @@ button.secondary { background: var(--raised); color: var(--text); }
 button.secondary:hover { background: var(--raised-hover); }
 :is(button, input, select):disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Shown across the top while the app isn't wired up yet. */
+/* Shown across the top while the app is still under development. */
 .status-banner {
   margin: 0;
   padding: 8px 16px;
