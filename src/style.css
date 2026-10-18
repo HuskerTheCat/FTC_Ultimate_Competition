@@ -163,3 +163,15 @@ button {
 button:not([class]):hover { filter: brightness(1.08); }
 button.secondary { background: var(--raised); color: var(--text); }
 button.secondary:hover { background: var(--raised-hover); }
+:is(button, input, select):disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Shown across the top while the app isn't wired up yet. */
+.status-banner {
+  margin: 0;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: var(--accent-gradient);
+  color: var(--accent-text);
+}

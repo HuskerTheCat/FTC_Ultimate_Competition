@@ -1,4 +1,4 @@
-// The welcome screen, copied from Inventory. Not wired up yet: the buttons do nothing until Scout's Firebase code is in.
+// The welcome screen, copied from Inventory. Not wired up yet, so every control is disabled under the "In progress" banner.
 const GUIDES_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Inventory/guides.html';
 const PROGRAMS = ['FTC', 'FRC', 'FLL', 'Other'];
 
@@ -36,7 +36,7 @@ function renderWelcome() {
       </div>
       <a class="guides-link" href="${GUIDES_URL}" target="_blank" rel="noopener">Guides</a>
     </main>`;
-  for (const form of app.querySelectorAll('form')) form.onsubmit = (e) => e.preventDefault();
+  for (const control of app.querySelectorAll('button, input, select')) control.disabled = true;
 }
 
 renderWelcome();
