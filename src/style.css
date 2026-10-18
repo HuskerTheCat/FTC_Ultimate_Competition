@@ -1,0 +1,165 @@
+@import '@fontsource/barlow/latin-400.css';
+@import '@fontsource/barlow/latin-500.css';
+@import '@fontsource/barlow/latin-600.css';
+@import '@fontsource/barlow/latin-700.css';
+@import '@fontsource/orbitron/latin-500.css';
+@import '@fontsource/orbitron/latin-800.css';
+
+/* Inventory's navy surfaces and theme tokens, with Scout orange as the accent. */
+:root {
+  --bg: #0e1221;
+  --surface: #161b2e;
+  --raised: #1f2640;
+  --field: #11162a;
+  --text: #eef1f8;
+  --muted: #8f98b5;
+  --border: #283050;
+  --field-border: #5c6894;
+  --accent: #ffa53d;
+  --accent-gradient: linear-gradient(135deg, #ffa53d, #e07415);
+  --accent-text: #ffffff;
+  --raised-hover: #283152;
+  --row-hover: #1c2238;
+  --placeholder: #6b7493;
+  --scrollbar: #3a4466;
+  --focus: 0 0 0 3px rgb(255 165 61 / 0.85);
+  --float-shadow: 0 18px 48px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+/* Pain and suffering mode: the light theme. */
+:root[data-theme="light"] {
+  --bg: #eef1f7;
+  --surface: #ffffff;
+  --raised: #e3e8f2;
+  --field: #ffffff;
+  --text: #141a2e;
+  --muted: #586180;
+  --border: #d3d9e6;
+  --field-border: #8a94b2;
+  --accent: #b45309;
+  --raised-hover: #d5dcea;
+  --row-hover: #eef2fa;
+  --placeholder: #8a92ad;
+  --scrollbar: #b8c0d4;
+  --float-shadow: 0 18px 48px rgb(20 30 60 / 0.18);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; scrollbar-width: thin; }
+:root { scrollbar-color: var(--scrollbar) transparent; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 Barlow, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+#app { max-width: 1160px; margin: 0 auto; padding: 20px 24px 96px; }
+h1 { font-size: 1.75rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 8px; }
+h2 { font-size: 1.2rem; font-weight: 600; margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: none; box-shadow: var(--focus); }
+
+/* Welcome and sign-in */
+.center { max-width: 420px; margin: 40px auto; display: flex; flex-direction: column; gap: 16px; }
+.center > h1:first-child::before {
+  content: '';
+  display: block;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 16px;
+  background: url(../public/icon.svg) center / contain no-repeat;
+}
+.center > .card { box-shadow: none; }
+/* The sign-in card holds two forms: sign in, and join with a code. Stacked on phones, side by side below. */
+.split > form { display: flex; flex-direction: column; gap: 12px; }
+.split > form + form { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
+/* The first screens sit on the topographic map of the link preview: dark navy fading to orange in one corner, thin contour lines over it. */
+body:has(> #app > .center) { --topo-from: #0e1221; --topo-to: #cc6414; --topo-line: #ffa53d; --topo-line-opacity: 0.3; }
+:root[data-theme="light"] body:has(> #app > .center) { --topo-from: #eef1f7; --topo-to: #f6cfa6; --topo-line: #b45309; --topo-line-opacity: 0.22; }
+body:has(> #app > .center)::before, body:has(> #app > .center)::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+body:has(> #app > .center)::before { background: linear-gradient(110deg, var(--topo-from) 55%, var(--topo-to) 100%); }
+body:has(> #app > .center)::after { background: var(--topo-line); opacity: var(--topo-line-opacity); -webkit-mask: url(./topo.svg) center / cover; mask: url(./topo.svg) center / cover; }
+/* The app's name in the title font: "Scout" lighter and orange, under "FTC Ultimate". */
+.brand { font: 800 1.6rem/1.15 Orbitron, sans-serif; letter-spacing: 0; }
+.brand .app-name { display: block; font-weight: 500; color: var(--accent); }
+/* Guides button, top right of the first screens. */
+#app:has(> .center) { position: relative; }
+.guides-link { position: absolute; top: 16px; right: 24px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 600; text-decoration: none; }
+.guides-link:hover { background: var(--raised); }
+/* Phones: level with the logo above the title, clear of it. */
+@media (max-width: 759px) { .guides-link { top: 67px; } }
+/* Computers and tablets: the first screens sit in the middle of the window, with the logo beside the title
+   and the welcome cards two across, so they fit without scrolling. */
+@media (min-width: 760px) {
+  #app:has(> .center) { min-height: 100dvh; padding-bottom: 20px; display: flex; flex-direction: column; }
+  .center { width: 100%; margin: auto; }
+  .center > h1:first-child { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .center > h1:first-child::before { flex: none; width: 44px; height: 44px; margin: 0; }
+  .center > h1.brand::before { width: 60px; height: 60px; }
+  .center.wide { max-width: 880px; display: grid; grid-template-columns: 1fr 1fr; }
+  .center.wide > h1 { grid-column: 1 / -1; }
+  .center.wide > .split { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+  .split > form + form { border-top: 0; border-left: 1px solid var(--border); padding: 0 0 0 20px; margin: 0; }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.teamid { display: flex; gap: 8px; }
+.teamid select { width: auto; flex: none; }
+.teamid input { flex: 1; min-width: 0; }
+
+/* Form controls */
+input, select, button { font: inherit; color: inherit; }
+input, select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  background: var(--field);
+}
+/* Our own dropdown arrow: the built-in one turns white while the list is open on some systems. */
+select {
+  appearance: none;
+  padding-right: 36px;
+  background: var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f98b5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 18px;
+}
+/* The open list matches the app's menus. Only browsers that can also hide their own arrow (::picker-icon) opt in:
+   Firefox can accept base-select before that works, and then draws a second arrow. Safari and Firefox keep their own list. */
+@supports selector(::picker-icon) {
+  select, ::picker(select) { appearance: base-select; }
+  select::picker-icon { display: none; }
+}
+select { white-space: nowrap; overflow: hidden; }
+::picker(select) { margin-top: 6px; padding: 6px; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--float-shadow); }
+option { padding: 8px 10px; border-radius: 8px; color: var(--text); }
+option::checkmark { display: none; }
+option:is(:hover, :focus-visible) { background: var(--row-hover); outline: none; }
+option:checked { background: rgb(255 165 61 / 0.15); color: var(--accent); }
+input::placeholder { color: var(--placeholder); }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+
+/* Buttons: primary (gradient), secondary (filled) */
+button {
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--accent-gradient);
+  color: var(--accent-text);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+button:not([class]):hover { filter: brightness(1.08); }
+button.secondary { background: var(--raised); color: var(--text); }
+button.secondary:hover { background: var(--raised-hover); }
