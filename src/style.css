@@ -100,7 +100,8 @@ body:has(> #app > .center)::after { background: var(--topo-line); opacity: var(-
   .center > h1.brand::before { width: 60px; height: 60px; }
   .center.wide { max-width: 880px; display: grid; grid-template-columns: 1fr 1fr; }
   .center.wide > h1 { grid-column: 1 / -1; }
-  .center.wide > .split { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+  .center.wide > .split { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
+  .split > form { padding-right: 20px; }
   .split > form + form { border-top: 0; border-left: 1px solid var(--border); padding: 0 0 0 20px; margin: 0; }
 }
 .card {

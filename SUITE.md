@@ -17,3 +17,4 @@ FTC Ultimate Scout and [FTC Ultimate Inventory](https://github.com/HuskerTheCat/
 ## Changes
 
 - 2026-10-18: Scout started with Inventory's team, join and hub code. Combined `firestore.rules`: Inventory's rules unchanged (version 5) plus Scout's section (`scoutRulesVersion` 1, only `scoutRulesVersion/{version}` so far). Inventory's repo doesn't have the combined file yet.
+- 2026-10-18: Home page: the line between Sign in and Join code is now exactly centered (it was 6px right of center). CSS only (`.split` in `src/style.css`, computers and tablets block). Same fix made in Inventory, Scout and Design.
