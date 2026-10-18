@@ -1,0 +1,248 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // One rules file for every FTC Ultimate app, since publishing rules replaces the whole file. It's identical in
+    // every app's repo (see SUITE.md).
+
+    // ---------- Shared: team, members, join (every FTC Ultimate app) ----------
+
+    // Each app has its own number. Add 1 to an app's number whenever its section changes, and to both when the shared
+    // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
+    // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
+    function rulesVersion() { return 5; }
+    function scoutRulesVersion() { return 1; }
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isMember() {
+      return signedIn() && exists(/databases/$(database)/documents/members/$(request.auth.uid));
+    }
+    function team() {
+      return get(/databases/$(database)/documents/team/info).data;
+    }
+    function isOwner() {
+      return isMember() && team().owner == request.auth.uid;
+    }
+    function shortText(value) {
+      return value is string && value.size() <= 200;
+    }
+    function validName(value) {
+      return value is string && value.size() > 0 && value.size() <= 40;
+    }
+
+    // Never holds a doc: reading it only checks the rules version (see rulesVersion above).
+    match /rulesVersion/{version} {
+      allow get: if int(version) <= rulesVersion();
+    }
+
+    match /team/info {
+      allow read: if isMember();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'secret', 'owner'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.secret is string && request.resource.data.secret.size() >= 10;
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['secret'])
+        && request.resource.data.secret is string && request.resource.data.secret.size() >= 10;
+    }
+
+    // The key that lets the owner take the team off the developer's team list (see hub.rules). Only the owner sees it.
+    match /team/owner {
+      allow read: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(['ownerKey'])
+        && request.resource.data.ownerKey is string && request.resource.data.ownerKey.size() >= 10;
+    }
+
+    match /join/info {
+      allow read: if true;
+      allow write: if isOwner()
+        && request.resource.data.keys().hasOnly(['apiKey', 'authDomain', 'appId', 'name'])
+        && shortText(request.resource.data.apiKey)
+        && shortText(request.resource.data.authDomain)
+        && shortText(request.resource.data.appId)
+        && shortText(request.resource.data.name);
+    }
+    match /members/{uid} {
+      allow read: if isMember();
+      // New members must have confirmed their email; members who joined before this rule keep their access.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly(['email', 'name', 'secret', 'joinedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && validName(request.resource.data.name)
+        && request.resource.data.joinedAt == request.time
+        && request.resource.data.secret == team().secret;
+      allow update: if request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && validName(request.resource.data.name);
+      allow delete: if isOwner() && uid != request.auth.uid;
+    }
+
+    // ---------- Inventory ----------
+
+    // existsAfter, so restoring from the trash can bring back a project and its uses in one write.
+    function projectExists(id) {
+      return id is string && existsAfter(/databases/$(database)/documents/projects/$(id));
+    }
+    function validProject() {
+      let project = request.resource.data;
+      return project.keys().hasOnly(['name', 'source', 'kind'])
+        && shortText(project.name) && project.name.size() > 0
+        && (project.source == '' || projectExists(project.source))
+        && (!('kind' in project) || (project.kind == 'packing' && project.source != ''));
+    }
+    function webLink(value) {
+      return value is string && value.size() <= 1000 && value.matches('https://.+');
+    }
+    // Rules can't loop, so each of the 20 places a tag can be is checked on its own.
+    function tagAt(tags, i) {
+      return tags.size() <= i || (tags[i] is string && tags[i].size() <= 40);
+    }
+    function validTags(tags) {
+      return tags is list && tags.size() <= 20
+        && tagAt(tags, 0) && tagAt(tags, 1) && tagAt(tags, 2) && tagAt(tags, 3) && tagAt(tags, 4)
+        && tagAt(tags, 5) && tagAt(tags, 6) && tagAt(tags, 7) && tagAt(tags, 8) && tagAt(tags, 9)
+        && tagAt(tags, 10) && tagAt(tags, 11) && tagAt(tags, 12) && tagAt(tags, 13) && tagAt(tags, 14)
+        && tagAt(tags, 15) && tagAt(tags, 16) && tagAt(tags, 17) && tagAt(tags, 18) && tagAt(tags, 19);
+    }
+    function validPart() {
+      let part = request.resource.data;
+      return part.keys().hasOnly(['projectId', 'name', 'partNumber', 'barcode', 'link', 'quantity', 'minQuantity', 'location', 'supplier', 'category', 'tags', 'unit', 'condition', 'notes', 'updatedBy', 'updatedAt'])
+        && projectExists(part.projectId)
+        && shortText(part.name) && part.name.size() > 0
+        && shortText(part.partNumber)
+        && (!('barcode' in part) || shortText(part.barcode))
+        && (!('link' in part) || webLink(part.link))
+        && shortText(part.location)
+        && shortText(part.supplier)
+        && shortText(part.category)
+        && validTags(part.tags)
+        && (!('unit' in part) || shortText(part.unit))
+        && (!('condition' in part) || part.condition in ['', 'new', 'used', 'broken'])
+        && (!('notes' in part) || (part.notes is string && part.notes.size() <= 1000))
+        && part.quantity is int && part.quantity >= 0 && part.quantity <= 1000000
+        && (!('minQuantity' in part) || (part.minQuantity is int && part.minQuantity >= 0 && part.minQuantity <= 1000000))
+        && part.updatedBy == request.auth.token.email
+        && part.updatedAt == request.time;
+    }
+    function validUse(useId) {
+      let use = request.resource.data;
+      return use.keys().hasOnly(['projectId', 'partId', 'quantity', 'packed'])
+        && (!('packed' in use) || use.packed is bool)
+        && useId == use.projectId + '_' + use.partId
+        && projectExists(use.projectId)
+        && existsAfter(/databases/$(database)/documents/parts/$(use.partId))
+        && use.quantity is int && use.quantity > 0 && use.quantity <= 1000000;
+    }
+    function validOrder() {
+      let order = request.resource.data;
+      return order.keys().hasOnly(['name', 'partNumber', 'quantity', 'supplier', 'partId', 'link', 'notes'])
+        && shortText(order.name) && order.name.size() > 0
+        && (!('link' in order) || webLink(order.link))
+        && (!('notes' in order) || (order.notes is string && order.notes.size() <= 1000))
+        && shortText(order.partNumber)
+        && shortText(order.supplier)
+        && order.quantity is int && order.quantity > 0 && order.quantity <= 1000000
+        && (order.partId == '' || exists(/databases/$(database)/documents/parts/$(order.partId)));
+    }
+
+    match /log/{entryId} {
+      allow read: if isMember();
+      allow create: if isMember()
+        && request.resource.data.keys().hasOnly(['at', 'by', 'byName', 'action', 'part', 'details'])
+        && request.resource.data.at == request.time
+        && request.resource.data.by == request.auth.uid
+        && validName(request.resource.data.byName)
+        && request.resource.data.action in ['added', 'edited', 'quantity', 'deleted', 'used', 'arrived']
+        && shortText(request.resource.data.part)
+        && request.resource.data.details is string && request.resource.data.details.size() <= 2000;
+    }
+
+    // Deleting a part or project only works by moving it to the trash in the same write (see trash below).
+    function trashedNow(kind, id) {
+      return existsAfter(/databases/$(database)/documents/trash/$(kind + '_' + id));
+    }
+
+    match /parts/{partId} {
+      allow read: if isMember();
+      allow create, update: if isMember() && validPart();
+      allow delete: if isMember() && trashedNow('part', partId);
+    }
+
+    match /projects/{projectId} {
+      allow read: if isMember();
+      allow create: if isMember() && validProject();
+      allow update: if isMember()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && shortText(request.resource.data.name) && request.resource.data.name.size() > 0;
+      allow delete: if isMember() && projectId != 'main' && trashedNow('project', projectId);
+    }
+
+    match /locations/{locationId} {
+      allow read, delete: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['name'])
+        && shortText(request.resource.data.name) && request.resource.data.name.size() > 0;
+    }
+
+    match /printed/{labelKey} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['at'])
+        && request.resource.data.at == request.time;
+    }
+
+    match /uses/{useId} {
+      allow read, delete: if isMember();
+      allow create, update: if isMember() && validUse(useId);
+    }
+
+    match /orders/{orderId} {
+      allow read, delete: if isMember();
+      allow create, update: if isMember() && validOrder();
+    }
+
+    // Deleted parts, projects and orders, kept so they can be brought back. Restoring writes `data` and `uses`
+    // through the rules above, so they're only checked for size here.
+    // An entry goes when it's old (a day short of the app's 30, so a device whose clock is a little fast can still clear
+    // the trash), when it's brought back, or when the owner deletes it for good. The age is checked first, so clearing many
+    // old entries in one write doesn't run into the rules' limit on reading other docs.
+    function restoredNow(entry) {
+      let collection = {'part': 'parts', 'project': 'projects', 'order': 'orders'}[entry.kind];
+      return existsAfter(/databases/$(database)/documents/$(collection)/$(entry.docId));
+    }
+    match /trash/{entryId} {
+      allow read: if isMember();
+      allow delete: if isMember()
+        && (resource.data.deletedAt < request.time - duration.value(29, 'd') || restoredNow(resource.data) || isOwner());
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['kind', 'docId', 'name', 'data', 'uses', 'deletedBy', 'deletedAt'])
+        && request.resource.data.kind in ['part', 'project', 'order']
+        && request.resource.data.docId is string
+        && entryId == request.resource.data.kind + '_' + request.resource.data.docId
+        && shortText(request.resource.data.name)
+        && request.resource.data.data is map
+        && request.resource.data.uses is list && request.resource.data.uses.size() <= 400
+        && request.resource.data.deletedBy == request.auth.token.email
+        && request.resource.data.deletedAt == request.time;
+    }
+
+    // Favorites and saved views, which the app no longer has. Kept so older versions of the app still work.
+    match /prefs/{uid} {
+      allow read: if isMember() && request.auth.uid == uid;
+      allow create, update: if isMember() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['favorites', 'views'])
+        && request.resource.data.favorites is list && request.resource.data.favorites.size() <= 500
+        && request.resource.data.views is list && request.resource.data.views.size() <= 50;
+    }
+
+    // ---------- Scout ----------
+
+    // Never holds a doc: reading it only checks Scout's rules version (see scoutRulesVersion above).
+    match /scoutRulesVersion/{version} {
+      allow get: if int(version) <= scoutRulesVersion();
+    }
+  }
+}

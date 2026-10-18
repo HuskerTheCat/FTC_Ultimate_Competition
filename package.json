@@ -1,0 +1,22 @@
+{
+  "name": "ftc-ultimate-scout",
+  "version": "0.1.0",
+  "description": "Match scouting for FTC robotics teams: web, Windows and Android.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "emulators": "npx firebase-tools emulators:start --project demo-scout"
+  },
+  "author": "HuskerTheCat",
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "firebase": "^13.0.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4"
+  },
+  "private": true,
+  "type": "module"
+}
