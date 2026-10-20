@@ -10,7 +10,7 @@ service cloud.firestore {
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
     function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 1; }
+    function scoutRulesVersion() { return 2; }
 
     function signedIn() {
       return request.auth != null;
@@ -243,6 +243,28 @@ service cloud.firestore {
     // Never holds a doc: reading it only checks Scout's rules version (see scoutRulesVersion above).
     match /scoutRulesVersion/{version} {
       allow get: if int(version) <= scoutRulesVersion();
+    }
+
+    // A robot's route for the route player (see the Routes tab). Any member can add, change or delete the team's routes.
+    function validRoute() {
+      let route = request.resource.data;
+      return route.keys().hasOnly(['name', 'season', 'phase', 'alliance', 'team', 'robot', 'start', 'steps', 'shared', 'updatedBy', 'updatedAt'])
+        && route.name is string && route.name.size() > 0 && route.name.size() <= 100
+        && route.season is string && route.season.size() <= 20
+        && route.phase in ['auto', 'teleop']
+        && route.alliance in ['red', 'blue']
+        && (route.team == null || route.team is int)
+        && route.robot is map
+        && route.start is map
+        && route.steps is list && route.steps.size() <= 40
+        && route.shared is bool
+        && route.updatedBy == request.auth.uid
+        && route.updatedAt == request.time;
+    }
+    match /scoutRoutes/{id} {
+      allow read: if isMember();
+      allow create, update: if isMember() && validRoute();
+      allow delete: if isMember();
     }
   }
 }

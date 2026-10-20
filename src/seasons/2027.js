@@ -23,4 +23,18 @@ export default {
     { id: 'yellow', label: 'Yellow card' },
     { id: 'red', label: 'Red card' },
   ],
+  // Inches from the bottom-left corner seen from the audience (see route.js). Read off Figures 9-2 and 10-2, so
+  // within a few inches.
+  field: {
+    size: 144,
+    tile: 24,
+    // G304: each alliance starts on its own half, touching the wall.
+    sides: { red: { x: 0, width: 72 }, blue: { x: 72, width: 72 } },
+    loadingZones: { red: { x: 0, y: 97, width: 11, height: 23 }, blue: { x: 133, y: 24, width: 11, height: 23 } },
+    gardens: { red: { x: 0, y: 0, width: 23, height: 3 }, blue: { x: 121, y: 141, width: 23, height: 3 } },
+    flowers: [{ x: 48, y: 144, r: 4 }, { x: 144, y: 96, r: 4 }, { x: 0, y: 48, r: 4 }, { x: 96, y: 0, r: 4 }],
+    hives: { red: { x: 50, y: 50, width: 20, height: 44 }, blue: { x: 74, y: 50, width: 20, height: 44 } },
+    // Where a new route's robot starts: a legal spot on each alliance's wall.
+    starts: { red: { x: 9, y: 72, h: 0 }, blue: { x: 135, y: 72, h: 180 } },
+  },
 };

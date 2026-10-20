@@ -45,3 +45,40 @@ export async function setMyName(uid, name) {
   members.find((m) => m.uid === uid).name = name;
   memberListeners.forEach((listener) => listener());
 }
+
+// Two routes that meet at the middle of the field, so the player shows a collision.
+const ROBOT = { width: 18, length: 18, speed: 60, turnSpeed: 270 };
+const routes = new Map([
+  ['left', {
+    name: 'Left wall, hive tip', season: '2027', phase: 'auto', alliance: 'red', team: 12345, robot: ROBOT, shared: false,
+    start: { x: 9, y: 72, h: 0 },
+    steps: [{ x: 40, y: 72, h: 0, action: 'hiveTip', wait: 1 }, { x: 40, y: 110, h: 90, action: null, wait: 0 }, { x: 20, y: 30, h: 0, action: 'park', wait: 0 }],
+  }],
+  ['partner', {
+    name: 'Far side sweep', season: '2027', phase: 'auto', alliance: 'blue', team: 67890, robot: { ...ROBOT, speed: 45 }, shared: true,
+    start: { x: 135, y: 72, h: 180 },
+    steps: [{ x: 104, y: 72, h: 180, action: 'hiveTip', wait: 0 }, { x: 104, y: 30, h: 270, action: null, wait: 0 }, { x: 34, y: 30, h: 180, action: 'park', wait: 0 }],
+  }],
+]);
+const routeListeners = new Set();
+let nextRoute = 1;
+const routesChanged = () => routeListeners.forEach((listener) => listener());
+
+export function watchRoutes(callback) {
+  const listener = () => callback([...routes].map(([id, route]) => structuredClone({ id, ...route })));
+  routeListeners.add(listener);
+  listener();
+  return () => routeListeners.delete(listener);
+}
+
+export function saveRoute(id, route) {
+  const routeId = id ?? `route${nextRoute++}`;
+  routes.set(routeId, structuredClone(route));
+  setTimeout(routesChanged);
+  return routeId;
+}
+
+export async function deleteRoute(id) {
+  routes.delete(id);
+  routesChanged();
+}

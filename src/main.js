@@ -10,6 +10,9 @@ import {
 import { scanCode } from './scanner.js';
 import { startStatusBanners, checkRules } from './status.js';
 import season from './seasons/2027.js';
+import { esc } from './ui.js';
+import { routeFromLink } from './route.js';
+import { startRoutes, renderRouteList, openSharedRoute } from './routes.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Scout/';
 // Scout uses the same Firebase setup and the same account data as Inventory, so it shares Inventory's guides for now.
@@ -45,12 +48,9 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
-
-const esc = (value) =>
-  String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // People are shown by their username; accounts made before usernames existed fall back to their email.
 const nameOf = (member) => member?.name || member?.email.split('@')[0].slice(0, 40) || 'Someone';
@@ -391,13 +391,18 @@ function renderTab() {
     if (button.dataset.tab === state.tab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  app.querySelector('#page').innerHTML = { routes: routesPage, scout: scoutPage, teams: teamsPage }[state.tab]();
+  if (state.tab === 'routes') return renderRouteList();
+  app.querySelector('#page').innerHTML = { scout: scoutPage, teams: teamsPage }[state.tab]();
+}
+
+// Opens a shared route's link in the Routes tab.
+function showSharedRoute(route) {
+  state.tab = 'routes';
+  renderTab();
+  openSharedRoute(route, true);
 }
 
 // The tabs' first pages, until their features are built.
-const routesPage = () => `
-  <div class="row"><h1>Routes</h1><button disabled>New route</button></div>
-  <div class="card empty"><p class="muted">No routes yet.</p></div>`;
 
 const scoutPage = () => `
   <div class="row"><h1>Scout</h1><button disabled>Scout a match</button></div>
@@ -475,6 +480,16 @@ function openRulesDialog(open) {
   dialog.showModal();
 }
 
+// A route link opened by someone who isn't signed in: the route plays on its own, with a way into the app.
+function renderSharedRoute(route) {
+  app.innerHTML = `
+    <header><h1 class="brand">FTC Ultimate <span class="app-name">Scout</span></h1><a href="./" class="link">Open the app</a></header>
+    <p id="error" class="error" role="alert" hidden></p>
+    <main id="page" class="page"></main>
+    <dialog id="dialog"></dialog>`;
+  openSharedRoute(route, false);
+}
+
 // ---------- startup ----------
 
 // A join link opened the app: switch to its team, asking first when this device is on another team.
@@ -487,6 +502,11 @@ async function joinFromLink() {
 }
 
 async function start() {
+  try {
+    state.sharedRoute = routeFromLink();
+  } catch (error) {
+    alert(error.message);
+  }
   if (DEMO) {
     fb = await import('./demo.js');
     state.connection = { teamName: '12345 Example Team', config: { projectId: 'demo' } };
@@ -498,7 +518,7 @@ async function start() {
     } catch (error) {
       alert(error.message);
     }
-    if (!state.connection) return renderWelcome();
+    if (!state.connection) return state.sharedRoute ? renderSharedRoute(state.sharedRoute) : renderWelcome();
   }
 
   fb.connect(state.connection.config);
@@ -527,15 +547,44 @@ async function start() {
     }
     state.user = user;
     renderApp();
+    if (state.sharedRoute) showSharedRoute(state.sharedRoute);
+    state.sharedRoute = null;
     checkRules(fb, openRulesDialog).catch(showError);
-    stopWatching = fb.watchMembers((members) => { state.members = members; }, (error) => {
+    const onError = (error) => {
       if (error.code !== 'permission-denied') return showError(error);
       state.signInError = new Error(`You no longer have access to ${state.connection.teamName}.`);
       fb.logOut();
-    });
+    };
+    const stops = [
+      fb.watchMembers((members) => { state.members = members; }, onError),
+      fb.watchRoutes((routes) => {
+        state.routes = routes;
+        // The list follows teammates' changes; an open editor or player is left alone.
+        if (state.tab === 'routes' && app.querySelector('#new-route')) renderRouteList();
+      }, onError),
+    ];
+    stopWatching = () => stops.forEach((stop) => stop());
   };
   fb.watchUser(enterTeam);
 }
 
+// A route scanned or opened while the app is running.
+addEventListener('hashchange', () => {
+  if (!state.user) return;
+  try {
+    const route = routeFromLink();
+    if (route) showSharedRoute(route);
+  } catch (error) {
+    showError(error);
+  }
+});
+
+startRoutes({
+  get page() { return app.querySelector('#page'); },
+  get dialog() { return app.querySelector('#dialog'); },
+  get fb() { return fb; },
+  state,
+  showError,
+});
 startStatusBanners();
 start();

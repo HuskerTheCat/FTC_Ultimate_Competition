@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 import {
   initializeFirestore, connectFirestoreEmulator, persistentLocalCache, persistentMultipleTabManager, terminate, clearIndexedDbPersistence,
-  doc, collection, getDoc, getDocFromServer, setDoc, updateDoc, onSnapshot, serverTimestamp,
+  doc, collection, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp,
 } from 'firebase/firestore';
 
 let auth;
@@ -125,3 +125,18 @@ export const watchMembers = (callback, onError) =>
   onSnapshot(collection(db, 'members'), (snap) => callback(snap.docs.map((d) => ({ uid: d.id, email: d.data().email, name: d.data().name }))), onError);
 
 export const setMyName = (uid, name) => updateDoc(doc(db, 'members', uid), { name });
+
+// ---------- routes ----------
+
+export const watchRoutes = (callback, onError) =>
+  onSnapshot(collection(db, 'scoutRoutes'), (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError);
+
+// Saves a route (a new one when id is null) and returns its id straight away, so saving works offline. The write
+// finishes when the device is online, and reports a failure to onError.
+export function saveRoute(id, route, onError) {
+  const ref = id ? doc(db, 'scoutRoutes', id) : doc(collection(db, 'scoutRoutes'));
+  setDoc(ref, { ...route, updatedBy: auth.currentUser.uid, updatedAt: serverTimestamp() }).catch(onError);
+  return ref.id;
+}
+
+export const deleteRoute = (id) => deleteDoc(doc(db, 'scoutRoutes', id));

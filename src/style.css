@@ -292,3 +292,62 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .status-banner.danger { background: var(--danger); color: #1b0b10; }
 .status-banner.offline { background: var(--surface); color: var(--muted); border-bottom: 1px solid var(--border); }
 .status-banner.demo { background: var(--surface); color: var(--accent); border-bottom: 1px solid var(--border); }
+
+/* Routes: alliance colors, the list, the field, the editor and the player. */
+:root { --red: #ff5d6c; --blue: #4d8dff; --field-floor: #1a2036; --field-line: #2c3554; }
+:root[data-theme="light"] { --red: #d0263f; --blue: #2f5bd6; --field-floor: #e6eaf2; --field-line: #c3cbdc; }
+.chip { display: inline-block; min-width: 56px; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-align: center; color: #fff; }
+.chip.red { background: var(--red); }
+.chip.blue { background: var(--blue); }
+.route-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.route-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
+.route-card:hover { background: var(--raised); }
+.route-card > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+
+.field-wrap { width: 100%; max-width: 620px; align-self: center; touch-action: none; user-select: none; }
+.field { display: block; width: 100%; height: auto; }
+.field .floor { fill: var(--field-floor); }
+.field .grid line { stroke: var(--field-line); stroke-width: 0.4; }
+.field .middle { stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 2 2; }
+.field .wall { fill: none; stroke: var(--muted); stroke-width: 1; }
+.field .labels text { fill: var(--muted); font: 600 5px Barlow, sans-serif; text-anchor: middle; }
+.field .zone, .field .garden { stroke: none; opacity: 0.35; }
+.field .hive { fill: none; stroke-width: 1; }
+.field .red:is(.zone, .garden) { fill: var(--red); }
+.field .blue:is(.zone, .garden) { fill: var(--blue); }
+.field .hive.red { stroke: var(--red); }
+.field .hive.blue { stroke: var(--blue); }
+.field .flower { fill: #f2c94c; }
+.robot polygon { stroke-width: 1; fill-opacity: 0.35; }
+.robot line { stroke-width: 1.2; stroke: var(--text); }
+.robot text { fill: var(--text); font: 700 4.5px Barlow, sans-serif; text-anchor: middle; pointer-events: none; }
+.robot.red polygon { fill: var(--red); stroke: var(--red); }
+.robot.blue polygon { fill: var(--blue); stroke: var(--blue); }
+.robot.start { cursor: grab; }
+.robot.selected polygon { stroke: var(--text); stroke-width: 1.2; }
+.robot.ghost { opacity: 0.6; pointer-events: none; }
+.robot.hit polygon { fill: var(--danger); stroke: var(--danger); fill-opacity: 0.7; }
+.path polyline { fill: none; stroke-width: 0.8; stroke-dasharray: 2 1.5; }
+.path.red polyline { stroke: var(--red); }
+.path.blue polyline { stroke: var(--blue); }
+.path.faint { opacity: 0.5; }
+.path .dot { cursor: grab; }
+.path .dot circle { fill: var(--surface); stroke-width: 0.8; }
+.path.red .dot circle { stroke: var(--red); }
+.path.blue .dot circle { stroke: var(--blue); }
+.path .dot.selected circle { fill: var(--accent); stroke: var(--accent); }
+.path .dot text { fill: var(--text); font: 700 3.4px Barlow, sans-serif; text-anchor: middle; pointer-events: none; }
+
+.editor-options { gap: 8px; }
+.editor-options #route-team { width: 96px; }
+.segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--raised); }
+.segmented button { min-height: 36px; padding: 4px 12px; background: none; color: var(--muted); }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
+.segmented button.red[aria-pressed="true"] { color: var(--red); }
+.segmented button.blue[aria-pressed="true"] { color: var(--blue); }
+input[type="range"] { min-height: 0; padding: 0; border: none; background: none; accent-color: var(--accent); }
+.row.pair > label { flex: 1 1 140px; }
+.player-controls { display: flex; align-items: center; gap: 12px; }
+.player-controls input { flex: 1; }
+.player-controls output { min-width: 56px; text-align: right; font-weight: 600; }
+.card > label.check { color: var(--text); }
