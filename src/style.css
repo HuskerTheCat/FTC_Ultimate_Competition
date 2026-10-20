@@ -76,11 +76,20 @@ a { color: var(--accent); }
 .split > form { display: flex; flex-direction: column; gap: 12px; }
 .split > form + form { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
 /* The first screens sit on the topographic map of the link preview: dark navy fading to orange in one corner, thin contour lines over it. */
-body:has(> #app > .center) { --topo-from: #0e1221; --topo-to: #cc6414; --topo-line: #ffa53d; --topo-line-opacity: 0.3; }
+body:has(> #app > .center) { position: relative; --topo-from: #0e1221; --topo-to: #cc6414; --topo-line: #ffa53d; --topo-line-opacity: 0.3; }
 :root[data-theme="light"] body:has(> #app > .center) { --topo-from: #eef1f7; --topo-to: #f6cfa6; --topo-line: #b45309; --topo-line-opacity: 0.22; }
-body:has(> #app > .center)::before, body:has(> #app > .center)::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-body:has(> #app > .center)::before { background: linear-gradient(110deg, var(--topo-from) 55%, var(--topo-to) 100%); }
-body:has(> #app > .center)::after { background: var(--topo-line); opacity: var(--topo-line-opacity); -webkit-mask: url(./topo.svg) center / cover; mask: url(./topo.svg) center / cover; }
+/* The gradient stays put. It is as tall as the screen with a phone's address bar hidden, so it still fills the screen once the bar slides away. */
+body:has(> #app > .center)::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 100lvh; z-index: -1; pointer-events: none; background: linear-gradient(110deg, var(--topo-from) 55%, var(--topo-to) 100%); }
+/* The contour lines cover the whole page and scroll with it. */
+body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; min-height: 100lvh; z-index: -1; pointer-events: none; background: var(--topo-line); opacity: var(--topo-line-opacity); -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; }
+/* Tied to the scroll, the lines slide back down by 70% of it, so they drift at 30% of the page's speed. will-change lets the browser run it alongside its own scrolling (without it Chrome moves the lines a frame late, which looks jumpy).
+   The layer is 30% of the page plus 70% of a screen tall, so at the bottom of the page it ends exactly at the page's end and never makes the page longer. Browsers without scroll-driven animations scroll the lines with the page. */
+@keyframes topo-drift { to { transform: translateY(calc((100% - 100lvh) * 7 / 3)); } }
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    body:has(> #app > .center)::after { bottom: auto; height: calc(30% + 70lvh); will-change: transform; animation: topo-drift linear both; animation-timeline: scroll(root); }
+  }
+}
 /* The app's name in the title font: "Scout" lighter and orange, under "FTC Ultimate". */
 .brand { font: 800 1.6rem/1.15 Orbitron, sans-serif; letter-spacing: 0; }
 .brand .app-name { display: block; font-weight: 500; color: var(--accent); }
