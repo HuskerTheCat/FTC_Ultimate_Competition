@@ -1,8 +1,10 @@
 name: Publish website
 
+# Main is the website itself. Every other branch is a test copy at branch/<name>/, so changes can be tried on a phone
+# before they're merged. Pages holds one site, so each run builds them all.
 on:
   push:
-    branches: [main]
+  delete:
   workflow_dispatch:
 
 permissions:
@@ -23,18 +25,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # tags, for the version below
+          fetch-depth: 0 # every branch, and the tags for the version below
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      # Latest release plus commits since, e.g. 0.4.0-11-g1796556, shown in bug reports.
-      - run: npm pkg set version=$(git describe --tags | sed 's/^v//')
-      - run: npm run build
+      - name: Build main and every branch
+        run: |
+          site="$RUNNER_TEMP/site"
+          build() {
+            git checkout -q -f "origin/$1"
+            npm ci
+            # Latest release plus commits since, e.g. 0.4.0-11-g1796556, shown in bug reports.
+            npm pkg set version=$(git describe --tags | sed 's/^v//')
+            npx vite build --outDir "$2" --emptyOutDir
+          }
+          build main "$site"
+          for branch in $(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin); do
+            [ "$branch" = main ] || [ "$branch" = HEAD ] || build "$branch" "$site/branch/$branch"
+          done
+          echo "SITE=$site" >> "$GITHUB_ENV"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: ${{ env.SITE }}
       - id: deployment
         uses: actions/deploy-pages@v4
