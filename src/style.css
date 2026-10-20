@@ -24,6 +24,8 @@
   --scrollbar: #3a4466;
   --focus: 0 0 0 3px rgb(255 165 61 / 0.85);
   --float-shadow: 0 18px 48px rgb(0 0 0 / 0.5);
+  --danger: #ff6b7d;
+  --backdrop: rgb(5 7 14 / 0.75);
   color-scheme: dark;
 }
 /* Pain and suffering mode: the light theme. */
@@ -42,6 +44,8 @@
   --placeholder: #8a92ad;
   --scrollbar: #b8c0d4;
   --float-shadow: 0 18px 48px rgb(20 30 60 / 0.18);
+  --danger: #d0263f;
+  --backdrop: rgb(20 26 46 / 0.4);
   color-scheme: light;
 }
 
@@ -123,13 +127,35 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
   gap: 12px;
 }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--muted); margin: 0; }
+.small { font-size: 0.875rem; }
+.error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgb(255 107 125 / 0.1);
+  border: 1px solid rgb(255 107 125 / 0.5);
+  color: var(--danger);
+}
+.error[hidden] { display: none; }
+
+/* Setup steps, and the steps still to do when creating a team */
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; color: var(--muted); }
+.steps li::marker { color: var(--text); font-weight: 600; }
+.steps strong { color: var(--text); font-weight: 600; }
+.steps button { display: block; margin-top: 8px; }
+.problems { margin: 0; padding: 10px 14px 10px 32px; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; background: rgb(255 107 125 / 0.1); border: 1px solid rgb(255 107 125 / 0.5); color: var(--danger); }
+.problems[hidden] { display: none; }
+.problems .muted { list-style: none; margin-left: -18px; }
+.password { display: flex; gap: 8px; }
+.password input { flex: 1; }
 .teamid { display: flex; gap: 8px; }
 .teamid select { width: auto; flex: none; }
 .teamid input { flex: 1; min-width: 0; }
 
 /* Form controls */
-input, select, button { font: inherit; color: inherit; }
-input, select {
+input, select, button, textarea { font: inherit; color: inherit; }
+input, select, textarea {
   width: 100%;
   min-height: 42px;
   padding: 8px 12px;
@@ -155,8 +181,13 @@ option { padding: 8px 10px; border-radius: 8px; color: var(--text); }
 option::checkmark { display: none; }
 option:is(:hover, :focus-visible) { background: var(--row-hover); outline: none; }
 option:checked { background: rgb(255 165 61 / 0.15); color: var(--accent); }
-input::placeholder { color: var(--placeholder); }
-input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+label, .field { display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; font-weight: 500; color: var(--muted); }
+label input { color: var(--text); font-weight: 400; font-size: 1rem; }
+label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; }
+label.check input { width: 18px; min-height: 18px; margin: 0; accent-color: var(--accent); }
+:is(input, textarea)::placeholder { color: var(--placeholder); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
 
 /* Buttons: primary (gradient), secondary (filled) */
 button {
@@ -173,10 +204,81 @@ button {
 button:not([class]):hover { filter: brightness(1.08); }
 button.secondary { background: var(--raised); color: var(--text); }
 button.secondary:hover { background: var(--raised-hover); }
+button.danger { background: none; color: var(--danger); border-color: rgb(255 107 125 / 0.5); }
+button.danger:hover { background: rgb(255 107 125 / 0.1); }
+button.link { min-height: 0; background: none; border: none; color: var(--accent); padding: 4px; align-self: center; font-weight: 500; }
+button.link.inline { padding: 2px 0; align-self: auto; text-decoration: underline; font-size: inherit; }
 :is(button, input, select):disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Shown across the top while the app is still under development. */
+/* Signed in: the header with the team's name and the ☰ menu, then the tabs. */
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+header h1 { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header .brand { font-size: 1rem; }
+header .brand .app-name { display: inline; }
+button.icon { width: 42px; padding: 0; background: var(--surface); color: var(--muted); border-color: var(--border); }
+button.icon svg { display: block; margin: 0 auto; }
+button.icon:hover, button.icon[aria-expanded="true"] { background: var(--raised); color: var(--text); }
+/* Flex, so the button inside isn't lifted by the text line around it. */
+.menuwrap { position: relative; display: flex; }
+.menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--float-shadow);
+}
+.menu[hidden] { display: none; }
+.menu hr { border: none; border-top: 1px solid var(--border); margin: 6px 4px; }
+.menu-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: none; color: var(--text); font-weight: 500; text-align: left; }
+.menu-item:hover { background: var(--row-hover); }
+.menu-version { margin: 4px 10px 2px; font-size: 0.75rem; color: var(--muted); }
+/* An on/off switch in a menu (Pain and suffering mode). Flipping it leaves the menu open. */
+.switch { flex: none; position: relative; width: 40px; height: 24px; margin-left: auto; border-radius: 999px; background: var(--field-border); transition: background 0.15s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+[aria-checked="true"] > .switch { background: var(--accent-gradient); }
+[aria-checked="true"] > .switch::after { transform: translateX(16px); }
+@media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+
+/* Routes, Scout and Teams. Phones: a bar along the bottom, in thumb reach. Computers and tablets: under the header. */
+.tabs { display: flex; gap: 4px; }
+.tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; padding: 6px; background: none; color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+.tabs button[aria-current="page"] { color: var(--accent); }
+.tabs button:not([aria-current]):hover { color: var(--text); }
+@media (max-width: 759px) {
+  .tabs { position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; padding: 4px 8px env(safe-area-inset-bottom); background: var(--surface); border-top: 1px solid var(--border); }
+}
+@media (min-width: 760px) {
+  .tabs { margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .tabs button { flex: none; flex-direction: row; gap: 8px; min-height: 44px; padding: 8px 16px; border-radius: 10px 10px 0 0; font-size: 1rem; }
+  .tabs button[aria-current="page"] { box-shadow: inset 0 -2px var(--accent); }
+}
+.page { display: flex; flex-direction: column; gap: 16px; }
+.page > .row { justify-content: space-between; }
+.empty { align-items: center; text-align: center; padding: 40px 20px; }
+
+/* Dialogs: the dialog is the rounded panel, so its scrollbar sits inside it. */
+dialog { border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--surface); box-shadow: var(--float-shadow); width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; color: var(--text); }
+dialog::backdrop { background: var(--backdrop); backdrop-filter: blur(3px); }
+dialog .card { padding: 24px; border: none; }
+dialog .card > .row:last-child { justify-content: flex-end; }
+#qr { align-self: center; border-radius: 10px; }
+#camera { width: 100%; border-radius: 10px; background: #000; }
+.members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.members li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.members li:last-child { border-bottom: none; }
+
+/* Across the top: the development note, and banners about the team's rules and the demo. */
 .status-banner {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  border-radius: 0;
   margin: 0;
   padding: 8px 16px;
   text-align: center;
@@ -184,4 +286,9 @@ button.secondary:hover { background: var(--raised-hover); }
   font-weight: 600;
   background: var(--accent-gradient);
   color: var(--accent-text);
+  text-decoration: none;
 }
+.status-banner[hidden] { display: none; }
+.status-banner.danger { background: var(--danger); color: #1b0b10; }
+.status-banner.offline { background: var(--surface); color: var(--muted); border-bottom: 1px solid var(--border); }
+.status-banner.demo { background: var(--surface); color: var(--accent); border-bottom: 1px solid var(--border); }

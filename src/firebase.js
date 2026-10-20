@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 import {
   initializeFirestore, connectFirestoreEmulator, persistentLocalCache, persistentMultipleTabManager, terminate, clearIndexedDbPersistence,
-  doc, getDoc, getDocFromServer, setDoc, serverTimestamp,
+  doc, collection, getDoc, getDocFromServer, setDoc, updateDoc, onSnapshot, serverTimestamp,
 } from 'firebase/firestore';
 
 let auth;
@@ -120,3 +120,8 @@ export const getOwnerKey = async () => (await getDoc(doc(db, 'team', 'owner'))).
 
 // Public, so a short join code can find the team: holds no secret, only what the app needs to start Firebase.
 export const setJoinInfo = ({ apiKey, authDomain, appId }, name) => setDoc(doc(db, 'join', 'info'), { apiKey, authDomain, appId, name });
+
+export const watchMembers = (callback, onError) =>
+  onSnapshot(collection(db, 'members'), (snap) => callback(snap.docs.map((d) => ({ uid: d.id, email: d.data().email, name: d.data().name }))), onError);
+
+export const setMyName = (uid, name) => updateDoc(doc(db, 'members', uid), { name });
