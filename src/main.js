@@ -13,6 +13,8 @@ import season from './seasons/2027.js';
 import { esc } from './ui.js';
 import { routeFromLink } from './route.js';
 import { startRoutes, renderRouteList, openSharedRoute } from './routes.js';
+import { startScouting, renderScoutList } from './scouting.js';
+import { startTeams, renderTeamList } from './teams.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Scout/';
 // Scout uses the same Firebase setup and the same account data as Inventory, so it shares Inventory's guides for now.
@@ -51,7 +53,7 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -425,8 +427,7 @@ function renderTab() {
     if (button.dataset.tab === state.tab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  if (state.tab === 'routes') return renderRouteList();
-  app.querySelector('#page').innerHTML = { scout: scoutPage, teams: teamsPage }[state.tab]();
+  ({ routes: renderRouteList, scout: renderScoutList, teams: renderTeamList })[state.tab]();
 }
 
 // Opens a shared route's link in the Routes tab.
@@ -435,17 +436,6 @@ function showSharedRoute(route) {
   renderTab();
   openSharedRoute(route, true);
 }
-
-// The tabs' first pages, until their features are built.
-
-const scoutPage = () => `
-  <div class="row"><h1>Scout</h1><button disabled>Scout a match</button></div>
-  <p class="muted">${esc(season.name)}</p>
-  <div class="card empty"><p class="muted">No matches scouted yet.</p></div>`;
-
-const teamsPage = () => `
-  <div class="row"><h1>Teams</h1></div>
-  <div class="card empty"><p class="muted">Teams you scout show up here.</p></div>`;
 
 // The join code is built from the team's current secret, so it stays valid after the owner resets it in Inventory.
 async function openTeamDialog() {
@@ -597,6 +587,13 @@ async function start() {
         // The list follows teammates' changes; an open editor or player is left alone.
         if (state.tab === 'routes' && app.querySelector('#new-route')) renderRouteList();
       }, onError),
+      fb.watchMatches((matches) => {
+        state.matches = matches;
+        // Lists follow teammates' scouting; counters and team pages are left alone.
+        if (state.tab === 'scout' && app.querySelector('#new-match')) renderScoutList();
+        if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
+      }, onError),
+      fb.watchButtons((buttons) => { state.buttons = buttons; }, onError),
     ];
     stopWatching = () => stops.forEach((stop) => stop());
   };
@@ -614,12 +611,16 @@ addEventListener('hashchange', () => {
   }
 });
 
-startRoutes({
+// What each tab needs from the app.
+const tabContext = {
   get page() { return app.querySelector('#page'); },
   get dialog() { return app.querySelector('#dialog'); },
   get fb() { return fb; },
   state,
   showError,
-});
+};
+startRoutes(tabContext);
+startScouting(tabContext);
+startTeams(tabContext);
 startStatusBanners();
 start();

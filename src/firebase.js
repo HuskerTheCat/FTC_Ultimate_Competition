@@ -140,3 +140,25 @@ export function saveRoute(id, route, onError) {
 }
 
 export const deleteRoute = (id) => deleteDoc(doc(db, 'scoutRoutes', id));
+
+// ---------- scouting ----------
+
+const listOf = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+export const watchMatches = (callback, onError) => onSnapshot(collection(db, 'scoutMatches'), (snap) => callback(listOf(snap)), onError);
+
+// One team's result in one match. Not awaited, so scouting works offline; a failed write is reported to onError.
+export function saveMatch(match, onError) {
+  setDoc(doc(collection(db, 'scoutMatches')), { ...match, scout: auth.currentUser.uid, savedAt: serverTimestamp() }).catch(onError);
+}
+
+export const deleteMatch = (id) => deleteDoc(doc(db, 'scoutMatches', id));
+
+export const watchButtons = (callback, onError) => onSnapshot(collection(db, 'scoutButtons'), (snap) => callback(listOf(snap)), onError);
+
+// A custom Scout button for the whole team. Returns its id straight away, like saveRoute.
+export function saveButton(button, onError) {
+  const ref = doc(collection(db, 'scoutButtons'));
+  setDoc(ref, button).catch(onError);
+  return ref.id;
+}
