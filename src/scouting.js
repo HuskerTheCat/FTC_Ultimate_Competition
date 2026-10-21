@@ -5,6 +5,9 @@ import { esc } from './ui.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 'Blue 2']];
+// Which alliance this device's scout watches. Usually two scouts split a match, one per alliance; saved on this device.
+const SIDES = { both: 'Both', red: 'Red', blue: 'Blue' };
+const SIDE_KEY = 'ftc-scout-side';
 
 // Set by the app (main.js): where pages and dialogs go, the backend, the team's data and how to show errors.
 let ui;
@@ -90,9 +93,10 @@ function openSetup() {
         <label>Event <input name="event" maxlength="100" value="${esc(last?.event ?? '')}" placeholder="Optional" /></label>
         <label>Match <input name="match" required inputmode="numeric" pattern="[1-9][0-9]{0,3}" value="${last ? last.match + 1 : 1}" /></label>
       </div>
-      <p class="muted small">Type the teams you’re watching, 1 to 4.</p>
+      <div class="segmented" role="group" aria-label="Alliance to watch">${Object.entries(SIDES).map(([id, label]) =>
+        `<button type="button" class="${id}" data-side="${id}">${label}</button>`).join('')}</div>
       <div class="row pair">${SLOTS.map(([alliance, label], i) => `
-        <label><span class="chip ${alliance}">${label}</span>
+        <label data-alliance="${alliance}"><span class="chip ${alliance}">${label}</span>
           <input name="team${i}" inputmode="numeric" pattern="[1-9][0-9]{0,5}" placeholder="Team number" /></label>`).join('')}
       </div>
       <div class="row">
@@ -100,11 +104,21 @@ function openSetup() {
         <button type="button" id="cancel" class="secondary">Cancel</button>
       </div>
     </form>`;
+  const showSide = (side) => {
+    localStorage.setItem(SIDE_KEY, side);
+    for (const button of ui.page.querySelectorAll('[data-side]')) button.setAttribute('aria-pressed', String(button.dataset.side === side));
+    for (const label of ui.page.querySelectorAll('[data-alliance]')) label.hidden = side !== 'both' && label.dataset.alliance !== side;
+  };
+  showSide(localStorage.getItem(SIDE_KEY) ?? 'both');
+  ui.page.querySelector('.segmented').onclick = (e) => {
+    const button = e.target.closest('[data-side]');
+    if (button) showSide(button.dataset.side);
+  };
   ui.page.querySelector('#cancel').onclick = renderScoutList;
   ui.page.querySelector('#setup').onsubmit = (e) => {
     e.preventDefault();
     const form = e.target;
-    const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t) => t.team);
+    const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t, i) => t.team && !form.querySelectorAll('[data-alliance]')[i].hidden);
     if (!teams.length) return ui.showError(new Error('Type at least one team number.'));
     openCounter({ event: form.event.value.trim(), match: Number(form.match.value) }, teams);
   };

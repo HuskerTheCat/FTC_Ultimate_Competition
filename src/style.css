@@ -165,6 +165,7 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
 .steps button { display: block; margin-top: 8px; }
 .problems { margin: 0; padding: 10px 14px 10px 32px; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; background: rgb(255 107 125 / 0.1); border: 1px solid rgb(255 107 125 / 0.5); color: var(--danger); }
 .problems[hidden] { display: none; }
+label[hidden] { display: none; }
 .problems .muted { list-style: none; margin-left: -18px; }
 .password { display: flex; gap: 8px; }
 .password input { flex: 1; }
@@ -387,3 +388,4 @@ textarea.notes { font-family: inherit; font-size: 0.9rem; }
 .chip:not(.red, .blue) { background: var(--raised); color: var(--text); }
 #find-team input { width: 150px; }
 .page > .row.actions { justify-content: flex-start; }
+#setup > .segmented { align-self: flex-start; }
