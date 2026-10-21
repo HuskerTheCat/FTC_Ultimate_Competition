@@ -1,7 +1,8 @@
 name: Publish website
 
-# Main is the website itself. Every other branch is a test copy at branch/<name>/, so changes can be tried on a phone
-# before they're merged. Pages holds one site, so each run builds them all.
+# Main is the website itself, locked until the app is ready (VITE_LOCKED, see src/main.js). Every other branch is an
+# unlocked test copy at branch/<name>/, so changes can be tried on a phone before they're merged. Pages holds one
+# site, so each run builds them all.
 on:
   push:
   delete:
@@ -37,9 +38,9 @@ jobs:
             npm ci
             # Latest release plus commits since, e.g. 0.4.0-11-g1796556, shown in bug reports.
             npm pkg set version=$(git describe --tags | sed 's/^v//')
-            npx vite build --outDir "$2" --emptyOutDir
+            VITE_LOCKED=$3 npx vite build --outDir "$2" --emptyOutDir
           }
-          build main "$site"
+          build main "$site" true
           for branch in $(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin); do
             [ "$branch" = main ] || [ "$branch" = HEAD ] || build "$branch" "$site/branch/$branch"
           done

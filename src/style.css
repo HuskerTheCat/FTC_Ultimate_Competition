@@ -76,6 +76,23 @@ a { color: var(--accent); }
   background: url(../public/icon.svg) center / contain no-repeat;
 }
 .center > .card { box-shadow: none; }
+/* The home page's cube opens the app switcher: Inventory, Scout and Design, each with its own cube. */
+.center > .lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.menuwrap { position: relative; display: flex; }
+#apps-toggle { flex: none; min-height: 0; margin: -3px; padding: 3px; background: none; border: none; }
+#apps-toggle:hover, #apps-toggle[aria-expanded="true"] { background: var(--raised); }
+.app-icon { display: block; width: 52px; height: 52px; background: center / contain no-repeat; }
+.app-icon.inventory { background-image: url(./inventory.svg); }
+.app-icon.scout { background-image: url(../public/icon.svg); }
+.app-icon.design { background-image: url(./design.svg); }
+#apps-menu .app-icon { flex: none; width: 28px; height: 28px; }
+/* Menus, as in Inventory. */
+.menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 260px; padding: 6px; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--float-shadow); }
+.menu[hidden] { display: none; }
+.menu h3 { margin: 4px 10px; font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+.menu-item { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 8px 10px; border: none; border-radius: 10px; background: none; color: var(--text); font-weight: 500; text-align: left; text-decoration: none; }
+.menu-item:hover { background: var(--row-hover); }
+.menu-item[aria-current="true"] { background: rgb(255 165 61 / 0.15); color: var(--accent); }
 /* The sign-in card holds two forms: sign in, and join with a code. Stacked on phones, side by side below. */
 .split > form { display: flex; flex-direction: column; gap: 12px; }
 .split > form + form { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
@@ -110,9 +127,11 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
   .center { width: 100%; margin: auto; }
   .center > h1:first-child { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
   .center > h1:first-child::before { flex: none; width: 44px; height: 44px; margin: 0; }
-  .center > h1.brand::before { width: 60px; height: 60px; }
+  .center > .lockup { flex-direction: row; align-items: center; gap: 14px; }
+  .center > .lockup > h1 { margin-bottom: 4px; }
+  .center > .lockup .app-icon { width: 60px; height: 60px; }
   .center.wide { max-width: 880px; display: grid; grid-template-columns: 1fr 1fr; }
-  .center.wide > h1 { grid-column: 1 / -1; }
+  .center.wide > :is(h1, .lockup, .error) { grid-column: 1 / -1; }
   .center.wide > .split { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
   .split > form { padding-right: 20px; }
   .split > form + form { border-top: 0; border-left: 1px solid var(--border); padding: 0 0 0 20px; margin: 0; }

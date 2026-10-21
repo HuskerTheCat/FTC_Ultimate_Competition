@@ -24,6 +24,9 @@ const GUIDES_LINK = `<a class="guides-link" href="${GUIDES_URL}" target="_blank"
 const SOURCE_URL = 'https://github.com/HuskerTheCat/FTC_Ultimate_Scout';
 // Opening the app with ?demo runs it on sample data instead of a team's Firebase project (see demo.js).
 const DEMO = new URLSearchParams(location.search).has('demo');
+// The live website (main) stays locked until the app is ready: just the welcome page, with sign-in, setup and the demo
+// turned off. Branch test sites are built unlocked (see .github/workflows/pages.yml).
+const LOCKED = import.meta.env.VITE_LOCKED === 'true';
 // Pain and suffering mode is the light theme. The choice is saved on this device only.
 const THEME_KEY = 'ftc-scout-theme';
 const THEME_COLORS = { light: '#eef1f7', dark: '#0e1221' };
@@ -122,7 +125,18 @@ function renderLoading() {
 function renderWelcome() {
   app.innerHTML = `
     <main class="center wide">
-      <h1 class="brand"><span>FTC Ultimate <span class="app-name">Scout</span></span></h1>
+      <div class="lockup">
+        <div class="menuwrap">
+          <button id="apps-toggle" aria-label="FTC Ultimate apps" title="FTC Ultimate apps" aria-haspopup="true" aria-expanded="false" aria-controls="apps-menu"><span class="app-icon scout"></span></button>
+          <div id="apps-menu" class="menu" hidden>
+            <h3>FTC Ultimate</h3>
+            <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Inventory/"><span class="app-icon inventory"></span>Inventory</a>
+            <button class="menu-item" aria-current="true"><span class="app-icon scout"></span>Scout</button>
+            <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Design/"><span class="app-icon design"></span>Design</a>
+          </div>
+        </div>
+        <h1 class="brand"><span>FTC Ultimate <span class="app-name">Scout</span></span></h1>
+      </div>
       <p id="error" class="error" role="alert" hidden></p>
       <div class="card split">
         <form id="signin">
@@ -165,6 +179,26 @@ function renderWelcome() {
   app.querySelector('#scan-join').onclick = () => scanCode(app.querySelector('#dialog'), 'Scan the join QR code', 'Point the camera at your team’s join QR code.')
     .then((text) => text && connectByCode(text))
     .catch(showError);
+  wireAppSwitcher();
+}
+
+// The cube opens a menu of the FTC Ultimate apps, as in Inventory. Choosing one, a tap elsewhere or Escape closes it.
+function wireAppSwitcher() {
+  const toggle = app.querySelector('#apps-toggle');
+  const menu = app.querySelector('#apps-menu');
+  const show = (open) => {
+    menu.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+  };
+  toggle.onclick = () => show(menu.hidden);
+  menu.onclick = (e) => e.target.closest('a, button') && show(false);
+  document.addEventListener('pointerdown', (e) => e.target.closest('.menuwrap') || show(false));
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && show(false));
+}
+
+function renderLocked() {
+  renderWelcome();
+  for (const control of app.querySelectorAll('.card :is(button, input, select)')) control.disabled = true;
 }
 
 // The setup steps in short, with the details in the setup guide. Creating the team first checks the Firebase project (see setup.js).
@@ -502,6 +536,7 @@ async function joinFromLink() {
 }
 
 async function start() {
+  if (LOCKED) return renderLocked();
   try {
     state.sharedRoute = routeFromLink();
   } catch (error) {
