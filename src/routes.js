@@ -7,6 +7,7 @@ import {
 } from './route.js';
 import { scanCode } from './scanner.js';
 import { esc } from './ui.js';
+import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const ALLIANCES = { red: 'Red', blue: 'Blue' };
@@ -87,7 +88,7 @@ function openEditor(route) {
         `<button type="button" data-alliance="${id}" class="${id}">${label}</button>`).join('')}</div>
       <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
         `<button type="button" data-phase="${id}">${label}</button>`).join('')}</div>
-      <input id="route-team" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Team #" value="${esc(route.team ?? '')}" aria-label="Team number" />
+      <input id="route-team" data-numpad="Team number" pattern="[0-9]*" maxlength="6" placeholder="Team #" value="${esc(route.team ?? '')}" aria-label="Team number" />
       <button id="robot" class="secondary">Robot</button>
     </div>
     <div id="field" class="field-wrap"></div>
@@ -219,6 +220,7 @@ function openEditor(route) {
     drawSelection();
   };
   ui.page.querySelector('#route-name').oninput = (e) => { route.name = e.target.value; };
+  wireNumpads(ui.page);
   ui.page.querySelector('#route-team').oninput = (e) => {
     route.team = Number(e.target.value) || null;
     draw();

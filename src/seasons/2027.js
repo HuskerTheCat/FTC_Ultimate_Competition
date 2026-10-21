@@ -5,9 +5,10 @@ export default {
   // Seconds (section 10.4). Robots don't move in the transition.
   periods: { auto: 30, transition: 8, teleop: 120 },
   // Table 10-2. null: can't be scored in that period. Cell, flower and garden count what's there when the match ends.
+  // once: done or not in each period, so Scout shows a checkbox instead of a counter.
   actions: [
-    { id: 'leave', label: 'Leave', points: { auto: 3, teleop: null } },
-    { id: 'park', label: 'Park', points: { auto: 5, teleop: 5 } },
+    { id: 'leave', label: 'Leave', points: { auto: 3, teleop: null }, once: true },
+    { id: 'park', label: 'Park', points: { auto: 5, teleop: 5 }, once: true },
     { id: 'hiveTip', label: 'Hive tip', points: { auto: 20, teleop: 20 } },
     { id: 'cell', label: 'Pollen/nectar in cell', points: { auto: null, teleop: 2 }, endCount: true },
     { id: 'nectarBonus', label: 'Bottom nectar bonus', points: { auto: null, teleop: 5 } },

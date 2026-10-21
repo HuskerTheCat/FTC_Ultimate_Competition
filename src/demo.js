@@ -92,6 +92,9 @@ const matches = new Map([
     counts: counts({ leave: 1 }, { cell: 4, garden: 6, park: 1 }), points: { auto: 3, teleop: 19, fouls: 0 } }],
   ['m3', { season: '2027', event: 'Demo Qualifier', match: 4, team: 67890, alliance: 'red', scout: 'demo', notes: 'Tipped the hive in auto again.',
     counts: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 11, nectarBonus: 1, park: 1 }), points: { auto: 28, teleop: 32, fouls: 0 } }],
+  // Sam watched 67890 in match 4 too, so the team page averages the two scouts.
+  ['m5', { season: '2027', event: 'Demo Qualifier', match: 4, team: 67890, alliance: 'red', scout: 'scout2', notes: 'Slow last 30 seconds.',
+    counts: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 9, park: 1 }), points: { auto: 28, teleop: 23, fouls: 0 } }],
   ['m4', { season: '2027', event: 'Demo Qualifier', match: 4, team: 22222, alliance: 'blue', scout: 'scout2', notes: 'Pushed into our robot.',
     counts: counts({}, { garden: 8, major: 1 }), points: { auto: 0, teleop: 8, fouls: 20 } }],
 ]);

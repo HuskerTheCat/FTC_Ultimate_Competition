@@ -2,6 +2,7 @@
 import { esc } from './ui.js';
 import { labelOf, matchPoints, pointsText, openMatchDialog } from './scouting.js';
 import { pitOf, openPitForm } from './pits.js';
+import { wireNumpads } from './numpad.js';
 import season from './seasons/2027.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
@@ -12,7 +13,27 @@ const oneDecimal = (n) => String(Math.round(n * 10) / 10);
 let ui;
 export const startTeams = (context) => { ui = context; };
 
-const matchesOf = (team) => ui.state.matches.filter((m) => m.team === team).sort((a, b) => a.match - b.match);
+// A team's matches, one each even when several scouts watched the team in the same match: their counts and points
+// are averaged, so a match never counts twice. `records` keeps each scout's own record.
+function matchesOf(team) {
+  const byMatch = new Map();
+  for (const record of ui.state.matches.filter((m) => m.team === team)) {
+    const key = `${record.event}|${record.match}`;
+    byMatch.set(key, [...(byMatch.get(key) ?? []), record]);
+  }
+  return [...byMatch.values()].map(combine).sort((a, b) => a.match - b.match);
+}
+
+function combine(records) {
+  const counts = { auto: {}, teleop: {} };
+  for (const record of records) {
+    for (const period of Object.keys(PERIODS)) {
+      for (const [id, taps] of Object.entries(record.counts[period])) counts[period][id] = (counts[period][id] ?? 0) + taps / records.length;
+    }
+  }
+  const points = Object.fromEntries(['auto', 'teleop', 'fouls'].map((part) => [part, Number(oneDecimal(average(records, (r) => r.points[part])))]));
+  return { ...records[0], counts, points, notes: records.map((r) => r.notes).filter(Boolean).join(' / '), records };
+}
 
 function averages(matches) {
   return {
@@ -45,7 +66,7 @@ export function renderTeamList() {
   ui.page.innerHTML = `
     <div class="row"><h1>Teams</h1>
       <form id="find-team" class="row">
-        <input name="team" required inputmode="numeric" pattern="[1-9][0-9]{0,5}" placeholder="Team number" aria-label="Team number" />
+        <input name="team" required data-numpad="Team number" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" aria-label="Team number" />
         <button>Open</button>
       </form>
     </div>
@@ -60,6 +81,7 @@ export function renderTeamList() {
         </button></li>`).join('')}
       </ul>`
     : '<div class="card empty"><p class="muted">Teams you scout show up here.</p></div>'}`;
+  wireNumpads(ui.page);
   ui.page.querySelector('#find-team').onsubmit = (e) => {
     e.preventDefault();
     renderTeam(Number(e.target.team.value));
@@ -89,10 +111,10 @@ export function renderTeam(team) {
       </section>
       <section class="card">
         <h2>Matches</h2>
-        <ul class="route-list">${matches.map((m) => `
-          <li><button class="route-card" data-id="${esc(m.id)}">
+        <ul class="route-list">${matches.map((m, i) => `
+          <li><button class="route-card" data-match="${i}">
             <span class="chip ${esc(m.alliance)}">${m.match}</span>
-            <span><strong>${esc(pointsText(m.points))}</strong>${m.notes ? `<span class="muted small">${esc(m.notes)}</span>` : ''}</span>
+            <span><strong>${esc(pointsText(m.points))}</strong>${m.records.length > 1 ? `<span class="muted small">Average of ${m.records.length} scouts</span>` : ''}${m.notes ? `<span class="muted small">${esc(m.notes)}</span>` : ''}</span>
           </button></li>`).join('')}
         </ul>
       </section>`
@@ -105,8 +127,8 @@ export function renderTeam(team) {
   ui.page.querySelector('#back').onclick = renderTeamList;
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(team, () => renderTeam(team));
   ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
-    const card = e.target.closest('[data-id]');
-    if (card) openMatchDialog(ui.state.matches.find((m) => m.id === card.dataset.id));
+    const card = e.target.closest('[data-match]');
+    if (card) openMatchDialog(matches[card.dataset.match].records);
   });
 }
 
@@ -125,12 +147,14 @@ function tapAverages(matches) {
 function comparison(pit, matches) {
   const scored = matches.length ? averages(matches) : null;
   const actual = (period, id) => (matches.length ? average(matches, (m) => m.counts[period][id] ?? 0) : null);
-  const cell = (claim, value) => `<td class="${value != null && value < claim ? 'short' : ''}">${value == null ? '–' : oneDecimal(value)}</td>`;
+  // Things done once a period (leave, park) read as Yes or No in the pits and how often in matches.
+  const format = (value, once) => (once ? `${Math.round(value * 100)}%` : oneDecimal(value));
+  const cell = (claim, value, once) => `<td class="${value != null && value < claim ? 'short' : ''}">${value == null ? '–' : format(value, once)}</td>`;
   const rows = Object.keys(PERIODS).flatMap((period) => season.actions
     .filter((a) => a.points[period] != null && (pit.claims[period][a.id] || actual(period, a.id)))
     .map((a) => {
       const claim = pit.claims[period][a.id] ?? 0;
-      return `<tr><th>${PERIODS[period]} · ${esc(a.label)}</th><td>${claim}</td>${cell(claim, actual(period, a.id))}</tr>`;
+      return `<tr><th>${PERIODS[period]} · ${esc(a.label)}</th><td>${a.once ? (claim ? 'Yes' : 'No') : claim}</td>${cell(claim, actual(period, a.id), a.once)}</tr>`;
     }));
   const claimed = claimedPoints(pit);
   return `

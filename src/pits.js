@@ -2,6 +2,7 @@
 // by team number, so the team's page can set the claims beside what match scouting saw.
 import season from './seasons/2027.js';
 import { esc } from './ui.js';
+import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const DRIVETRAINS = ['Mecanum', 'Tank', 'Swerve', 'Other'];
@@ -19,7 +20,7 @@ export function openPitForm(team, back) {
     <div class="row"><h1>Pit scout</h1></div>
     <form id="pit" class="page">
       <section class="card">
-        <label>Team number <input name="team" required inputmode="numeric" pattern="[1-9][0-9]{0,5}" value="${team ?? ''}" /></label>
+        <label>Team number <input name="team" required data-numpad="Team number" maxlength="6" pattern="[1-9][0-9]{0,5}" value="${team ?? ''}" /></label>
         <p id="pit-before" class="muted small" hidden></p>
         <label>Drivetrain <select name="drivetrain"><option value="">Not asked</option>${DRIVETRAINS.map((d) => `<option>${d}</option>`).join('')}</select></label>
       </section>
@@ -27,7 +28,7 @@ export function openPitForm(team, back) {
         <section class="card">
           <h2>${label}: how many per match?</h2>
           <ul class="tally-list">${season.actions.filter((a) => a.points[period] != null).map((a) => `
-            <li><span>${esc(a.label)}</span><input class="claim" type="number" min="0" max="99" inputmode="numeric" name="${period}.${a.id}" aria-label="${PERIODS[period]} ${esc(a.label)}" /></li>`).join('')}
+            <li><span>${esc(a.label)}</span><input class="claim" ${a.once ? 'type="checkbox"' : 'type="number" min="0" max="99" inputmode="numeric"'} name="${period}.${a.id}" aria-label="${PERIODS[period]} ${esc(a.label)}" /></li>`).join('')}
           </ul>
         </section>`).join('')}
       <section class="card"><textarea class="notes" name="notes" rows="3" maxlength="2000" placeholder="Notes: strategy, strengths, problems"></textarea></section>
@@ -52,9 +53,11 @@ export function openPitForm(team, back) {
     form.notes.value = pit?.notes ?? '';
     for (const input of form.querySelectorAll('.claim')) {
       const [period, id] = input.name.split('.');
-      input.value = pit?.claims[period][id] ?? '';
+      if (input.type === 'checkbox') input.checked = Boolean(pit?.claims[period][id]);
+      else input.value = pit?.claims[period][id] ?? '';
     }
   };
+  wireNumpads(form);
   form.team.oninput = fill;
   fill();
 
@@ -64,7 +67,8 @@ export function openPitForm(team, back) {
     const claims = { auto: {}, teleop: {} };
     for (const input of form.querySelectorAll('.claim')) {
       const [period, id] = input.name.split('.');
-      if (Number(input.value)) claims[period][id] = Number(input.value);
+      const claim = input.type === 'checkbox' ? Number(input.checked) : Number(input.value);
+      if (claim) claims[period][id] = claim;
     }
     const pit = { season: season.id, team: Number(form.team.value), claims, drivetrain: form.drivetrain.value, notes: form.notes.value.trim() };
     ui.fb.savePit(pit, ui.showError);

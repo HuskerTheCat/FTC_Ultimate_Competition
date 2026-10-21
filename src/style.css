@@ -399,3 +399,18 @@ textarea.notes { font-family: inherit; font-size: 0.9rem; }
 .compare td { width: 90px; font-weight: 700; }
 .compare .total :is(th, td) { font-weight: 700; }
 .compare td.short { color: var(--danger); }
+/* Leave and park: a checkbox per team instead of a counter. */
+.tally .box { flex: none; width: 28px; height: 28px; border: 2px solid var(--border); border-radius: 8px; }
+.tally[aria-checked="true"] { border-color: var(--accent); }
+.tally[aria-checked="true"] .box { background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center / 20px no-repeat; border-color: var(--accent); }
+.claim[type="checkbox"] { width: 24px; min-height: 24px; margin: 0 24px; accent-color: var(--accent); }
+/* The number pad sits at the bottom like a phone keyboard, over the page instead of pushing it. */
+dialog.numpad { margin: auto auto 0; width: min(420px, 100%); border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+.numpad form { display: flex; flex-direction: column; gap: 12px; }
+.numpad .row { justify-content: space-between; }
+.numpad output { font-size: 1.6rem; font-weight: 700; min-height: 1.6em; }
+.numpad .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.numpad .keys button { min-height: 56px; font-size: 1.4rem; }
+.numpad .keys button:not([data-key]) { font-size: 1rem; }
+dialog form > section { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+dialog form > section > ul { align-self: stretch; }

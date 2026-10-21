@@ -3,6 +3,7 @@
 import season from './seasons/2027.js';
 import { esc } from './ui.js';
 import { openPitForm } from './pits.js';
+import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 'Blue 2']];
@@ -43,14 +44,14 @@ export function renderScoutList() {
   const matches = [...ui.state.matches].sort((a, b) => b.match - a.match || a.team - b.team);
   ui.page.innerHTML = `
     <div class="row"><h1>Scout</h1>
-      <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="new-match">Scout a match</button></div>
+      <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="new-match">Match scout</button></div>
     </div>
     <p class="muted">${esc(season.name)}</p>
     ${matches.length ? `
       <ul class="route-list">${matches.map((m) => `
         <li><button class="route-card" data-id="${esc(m.id)}">
           <span class="chip ${esc(m.alliance)}">${m.team}</span>
-          <span><strong>Match ${m.match}${m.event ? ` · ${esc(m.event)}` : ''}</strong><span class="muted small">${esc(pointsText(m.points))}</span></span>
+          <span><strong>Match ${m.match}${m.event ? ` · ${esc(m.event)}` : ''}</strong><span class="muted small">${esc(pointsText(m.points))} · by ${esc(scoutName(m))}</span></span>
         </button></li>`).join('')}
       </ul>`
     : '<div class="card empty"><p class="muted">No matches scouted yet.</p></div>'}`;
@@ -58,29 +59,39 @@ export function renderScoutList() {
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(null, renderScoutList);
   ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-id]');
-    if (card) openMatchDialog(ui.state.matches.find((m) => m.id === card.dataset.id));
+    if (card) openMatchDialog([ui.state.matches.find((m) => m.id === card.dataset.id)]);
   });
 }
 
-// One team's result in a match: what was tapped, the notes, and Delete for mistakes.
-export function openMatchDialog(match) {
-  const scout = ui.state.members.find((m) => m.uid === match.scout);
-  const rows = Object.keys(PERIODS).flatMap((period) => Object.entries(match.counts[period])
-    .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${taps}</strong></li>`));
+export const scoutName = (record) => {
+  const member = ui.state.members.find((m) => m.uid === record.scout);
+  return member ? member.name || member.email : 'a former member';
+};
+
+// One team in one match, as each scout who watched it saw it: what was tapped, the notes, and Delete for mistakes.
+export function openMatchDialog(records) {
+  const { team, match } = records[0];
   ui.dialog.innerHTML = `
     <form method="dialog" class="card">
-      <h2>${match.team} in match ${match.match}</h2>
-      <p class="muted small">${esc(pointsText(match.points))}${scout ? ` · scouted by ${esc(scout.name || scout.email)}` : ''}</p>
-      ${rows.length ? `<ul class="tally-list">${rows.join('')}</ul>` : '<p class="muted">Nothing tapped.</p>'}
-      ${match.notes ? `<p>${esc(match.notes)}</p>` : ''}
-      <div class="row">
-        <button>Close</button>
-        <button type="button" id="delete-match" class="danger">Delete</button>
-      </div>
+      <h2>${team} in match ${match}</h2>
+      ${records.map((record) => {
+        const rows = Object.keys(PERIODS).flatMap((period) => Object.entries(record.counts[period])
+          .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${taps}</strong></li>`));
+        return `
+          <section>
+            <p class="muted small">${esc(pointsText(record.points))} · by ${esc(scoutName(record))}</p>
+            ${rows.length ? `<ul class="tally-list">${rows.join('')}</ul>` : '<p class="muted">Nothing tapped.</p>'}
+            ${record.notes ? `<p>${esc(record.notes)}</p>` : ''}
+            <button type="button" class="danger" data-delete="${esc(record.id)}">Delete</button>
+          </section>`;
+      }).join('')}
+      <div class="row"><button>Close</button></div>
     </form>`;
-  ui.dialog.querySelector('#delete-match').onclick = () => {
+  ui.dialog.querySelector('form').onclick = (e) => {
+    const id = e.target.closest('[data-delete]')?.dataset.delete;
+    if (!id) return;
     ui.dialog.close();
-    ui.fb.deleteMatch(match.id).catch(ui.showError);
+    ui.fb.deleteMatch(id).catch(ui.showError);
   };
   ui.dialog.showModal();
 }
@@ -91,17 +102,17 @@ export function openMatchDialog(match) {
 function openSetup() {
   const last = ui.state.matches.reduce((a, b) => (a && a.match >= b.match ? a : b), null);
   ui.page.innerHTML = `
-    <div class="row"><h1>Scout a match</h1></div>
+    <div class="row"><h1>Match scout</h1></div>
     <form id="setup" class="card">
       <div class="row pair">
         <label>Event <input name="event" maxlength="100" value="${esc(last?.event ?? '')}" placeholder="Optional" /></label>
-        <label>Match <input name="match" required inputmode="numeric" pattern="[1-9][0-9]{0,3}" value="${last ? last.match + 1 : 1}" /></label>
+        <label>Match <input name="match" required data-numpad="Match" maxlength="4" pattern="[1-9][0-9]{0,3}" value="${last ? last.match + 1 : 1}" /></label>
       </div>
       <div class="segmented" role="group" aria-label="Alliance to watch">${Object.entries(SIDES).map(([id, label]) =>
         `<button type="button" class="${id}" data-side="${id}">${label}</button>`).join('')}</div>
       <div class="row pair">${SLOTS.map(([alliance, label], i) => `
         <label data-alliance="${alliance}"><span class="chip ${alliance}">${label}</span>
-          <input name="team${i}" inputmode="numeric" pattern="[1-9][0-9]{0,5}" placeholder="Team number" /></label>`).join('')}
+          <input name="team${i}" data-numpad="${label}" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" /></label>`).join('')}
       </div>
       <div class="row">
         <button>Start</button>
@@ -114,6 +125,7 @@ function openSetup() {
     for (const label of ui.page.querySelectorAll('[data-alliance]')) label.hidden = side !== 'both' && label.dataset.alliance !== side;
   };
   showSide(localStorage.getItem(SIDE_KEY) ?? 'both');
+  wireNumpads(ui.page);
   ui.page.querySelector('.segmented').onclick = (e) => {
     const button = e.target.closest('[data-side]');
     if (button) showSide(button.dataset.side);
@@ -131,13 +143,15 @@ function openSetup() {
 // ---------- counters ----------
 
 // One column per team with a big button for everything that scores in the current period, the fouls, and the team's
-// custom buttons. Undo takes back that team's last tap. Nothing is saved until Save.
+// custom buttons; things done once a period (leave, park) are checkboxes. Undo takes back that team's last counter tap.
+// Nothing is saved until Save.
 function openCounter(match, teams) {
   let period = 'auto';
   const sheets = teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '' }));
 
   const buttonsFor = () => [
-    ...season.actions.filter((a) => a.points[period] != null).map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}` })),
+    ...season.actions.filter((a) => a.points[period] != null)
+      .map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}`, once: a.once })),
     ...season.fouls.map((f) => ({ id: f.id, label: f.label, points: `${f.points} to them`, foul: true })),
     ...ui.state.buttons.map((b) => ({ id: b.id, label: b.label, points: `${b.points >= 0 ? '+' : ''}${b.points}` })),
   ];
@@ -158,7 +172,10 @@ function openCounter(match, teams) {
         <section class="card" data-sheet="${i}">
           <div class="row"><span class="chip ${sheet.alliance}">${sheet.team}</span>
             <strong>${scored(sheet.counts)} pts</strong></div>
-          ${buttons.map((b) => `
+          ${buttons.map((b) => b.once ? `
+            <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
+              <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
+            </button>` : `
             <button type="button" class="tally${b.foul ? ' foul' : ''}" data-id="${esc(b.id)}">
               <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
             </button>`).join('')}
@@ -178,7 +195,12 @@ function openCounter(match, teams) {
     ui.page.querySelector('.counter').onclick = (e) => {
       const sheet = sheets[e.target.closest('[data-sheet]')?.dataset.sheet];
       const tally = e.target.closest('.tally');
-      if (tally) {
+      if (tally?.dataset.once != null) {
+        const { id } = tally.dataset;
+        if (sheet.counts[period][id]) delete sheet.counts[period][id];
+        else sheet.counts[period][id] = 1;
+        render();
+      } else if (tally) {
         const { id } = tally.dataset;
         sheet.counts[period][id] = (sheet.counts[period][id] ?? 0) + 1;
         sheet.taps.push({ period, id });
