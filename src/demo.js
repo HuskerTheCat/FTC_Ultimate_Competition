@@ -5,7 +5,7 @@ const USER = { uid: 'demo', email: 'husker@example.com', emailVerified: true };
 const TEAM = { name: '12345 Example Team', secret: 'demoSecret', owner: USER.uid };
 const members = [
   { uid: USER.uid, email: USER.email, name: 'Husker' },
-  { uid: 'scout2', email: 'scout@example.com', name: 'Sam' },
+  { uid: 'gabby', email: 'gabby@example.com', name: 'Gabby' },
 ];
 const memberListeners = new Set();
 
@@ -86,22 +86,22 @@ export async function deleteRoute(id) {
 // A few scouted matches so the Teams tab has something to rank.
 const counts = (auto, teleop) => ({ auto, teleop });
 const matches = new Map([
-  ['m1', { season: '2027', event: 'Demo Qualifier', match: 1, team: 67890, alliance: 'blue', scout: 'scout2', notes: 'Fast cycles, missed park.',
+  ['m1', { season: '2027', event: 'Demo Qualifier', match: 1, team: 67890, alliance: 'blue', scout: 'gabby', notes: 'Fast cycles, missed park.',
     counts: counts({ leave: 1, hiveTip: 1 }, { cell: 9, flower: 4, minor: 1 }), points: { auto: 23, teleop: 26, fouls: 5 } }],
   ['m2', { season: '2027', event: 'Demo Qualifier', match: 1, team: 11111, alliance: 'red', scout: 'demo', notes: '',
     counts: counts({ leave: 1 }, { cell: 4, garden: 6, park: 1 }), points: { auto: 3, teleop: 19, fouls: 0 } }],
   ['m3', { season: '2027', event: 'Demo Qualifier', match: 4, team: 67890, alliance: 'red', scout: 'demo', notes: 'Tipped the hive in auto again.',
     counts: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 11, nectarBonus: 1, park: 1 }), points: { auto: 28, teleop: 32, fouls: 0 } }],
-  // Sam watched 67890 in match 4 too, so the team page averages the two scouts.
-  ['m5', { season: '2027', event: 'Demo Qualifier', match: 4, team: 67890, alliance: 'red', scout: 'scout2', notes: 'Slow last 30 seconds.',
+  // Gabby watched 67890 in match 4 too, so the team page averages the two scouts.
+  ['m5', { season: '2027', event: 'Demo Qualifier', match: 4, team: 67890, alliance: 'red', scout: 'gabby', notes: 'Slow last 30 seconds.',
     counts: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 9, park: 1 }), points: { auto: 28, teleop: 23, fouls: 0 } }],
-  ['m4', { season: '2027', event: 'Demo Qualifier', match: 4, team: 22222, alliance: 'blue', scout: 'scout2', notes: 'Pushed into our robot.',
+  ['m4', { season: '2027', event: 'Demo Qualifier', match: 4, team: 22222, alliance: 'blue', scout: 'gabby', notes: 'Pushed into our robot.',
     counts: counts({}, { garden: 8, major: 1 }), points: { auto: 0, teleop: 8, fouls: 20 } }],
 ]);
 const buttons = new Map([['defended', { label: 'Played defense', points: 0 }]]);
 // 67890 oversells its teleop in the pits; 33333 was only pit scouted.
 const pits = new Map([
-  ['67890', { season: '2027', team: 67890, by: 'scout2', drivetrain: 'Mecanum', notes: 'Says they never miss the hive tip.',
+  ['67890', { season: '2027', team: 67890, by: 'gabby', drivetrain: 'Mecanum', notes: 'Says they never miss the hive tip.',
     claims: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 14, flower: 4, park: 1 }) }],
   ['33333', { season: '2027', team: 33333, by: 'demo', drivetrain: 'Tank', notes: 'New team, parks every match.',
     claims: counts({ leave: 1, park: 1 }, { garden: 6, park: 1 }) }],
