@@ -10,7 +10,7 @@ service cloud.firestore {
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
     function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 3; }
+    function scoutRulesVersion() { return 4; }
 
     function signedIn() {
       return request.auth != null;
@@ -312,6 +312,17 @@ service cloud.firestore {
         && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 30
         && request.resource.data.points is int && request.resource.data.points >= -100 && request.resource.data.points <= 100;
       allow delete: if isMember();
+    }
+
+    // The team's robot (size in inches, speeds in in/s and °/s), copied into each new route.
+    match /scoutSettings/robot {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['width', 'length', 'speed', 'turnSpeed'])
+        && request.resource.data.width is number && request.resource.data.width >= 6 && request.resource.data.width <= 18
+        && request.resource.data.length is number && request.resource.data.length >= 6 && request.resource.data.length <= 18
+        && request.resource.data.speed is number && request.resource.data.speed >= 5 && request.resource.data.speed <= 200
+        && request.resource.data.turnSpeed is number && request.resource.data.turnSpeed >= 30 && request.resource.data.turnSpeed <= 1000;
     }
   }
 }

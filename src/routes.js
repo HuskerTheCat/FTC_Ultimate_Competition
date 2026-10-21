@@ -73,7 +73,7 @@ function scanRoute() {
 function newRoute() {
   return {
     name: '', season: season.id, phase: 'auto', alliance: 'red', team: ui.state.connection.teamNumber ?? null,
-    robot: { ...DEFAULT_ROBOT }, start: { ...season.field.starts.red }, steps: [], shared: false,
+    robot: { ...(ui.state.robot ?? DEFAULT_ROBOT) }, start: { ...season.field.starts.red }, steps: [], shared: false,
   };
 }
 
@@ -297,6 +297,7 @@ function openRobotDialog(route, onChange) {
         <label>Turn speed (°/s)<input name="turnSpeed" type="number" min="30" max="1000" value="${turnSpeed}" /></label>
       </div>
       <p class="muted small">Steps take as long as the robot needs to drive or turn to them at these speeds. Each action adds ${ACTION_SECONDS} s.</p>
+      <label class="check"><input name="teamRobot" type="checkbox" /> Start the team’s new routes with this robot</label>
       <div class="row">
         <button value="save">Done</button>
         <button value="cancel" formnovalidate class="secondary">Cancel</button>
@@ -306,6 +307,7 @@ function openRobotDialog(route, onChange) {
   form.onsubmit = (e) => {
     if (e.submitter.value !== 'save') return;
     for (const key of ['width', 'length', 'speed', 'turnSpeed']) route.robot[key] = Number(form[key].value);
+    if (form.teamRobot.checked) ui.fb.saveRobot({ ...route.robot }, ui.showError);
     onChange();
   };
   ui.dialog.showModal();
@@ -345,9 +347,11 @@ export function openPlayer(extra, back = renderRouteList, onSave = null, startPh
 
   ui.page.innerHTML = `
     <div class="row">${back ? '<button id="back" class="link">‹ Back</button>' : ''}${onSave ? '<button id="save-shared">Add to my routes</button>' : ''}</div>
-    <div class="row"><h1>Play routes</h1>${extra.length ? `<span class="muted">${PERIODS[phase]}</span>` : `
+    <div class="row"><h1>Play routes</h1>${extra.length ? '' : `
       <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
         `<button type="button" data-phase="${id}" aria-pressed="${id === phase}">${label}</button>`).join('')}</div>`}</div>
+    ${extra.map((r) => `<p class="row route-summary"><span class="chip ${esc(r.alliance)}">${esc(r.team || ALLIANCES[r.alliance])}</span>
+      <strong>${esc(r.name || 'Unnamed route')}</strong><span class="muted small">${esc(summary(r))}</span></p>`).join('')}
     <div id="field" class="field-wrap"></div>
     <div class="player-controls">
       <button id="play-pause" aria-label="Play">Play</button>
@@ -359,7 +363,7 @@ export function openPlayer(extra, back = renderRouteList, onSave = null, startPh
       <h2>Routes</h2>
       ${saved.map((r) => `<label class="check"><input type="checkbox" data-id="${esc(r.id)}" />
         <span class="chip ${esc(r.alliance)}">${esc(r.team || ALLIANCES[r.alliance])}</span><span>${esc(r.name)} <span class="muted small">${esc(summary(r))}</span></span></label>`).join('')}
-    </div>` : `<p class="muted">No saved ${PERIODS[phase].toLowerCase()} routes yet.</p>`}`;
+    </div>` : extra.length ? '' : `<p class="muted">No saved ${PERIODS[phase].toLowerCase()} routes yet.</p>`}`;
 
   let routes = [];
   let timed = [];

@@ -165,6 +165,13 @@ export function saveButton(button, onError) {
   return ref.id;
 }
 
+// The team's robot, or null before anyone has set it.
+export const watchRobot = (callback, onError) => onSnapshot(doc(db, 'scoutSettings', 'robot'), (snap) => callback(snap.data() ?? null), onError);
+
+export function saveRobot(robot, onError) {
+  setDoc(doc(db, 'scoutSettings', 'robot'), robot).catch(onError);
+}
+
 export const watchPits = (callback, onError) => onSnapshot(collection(db, 'scoutPits'), (snap) => callback(listOf(snap)), onError);
 
 // A team's pit interview, kept under its team number so the latest one replaces the last.

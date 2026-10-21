@@ -101,11 +101,12 @@ export function renderTeam(team) {
   const routes = ui.state.routes.filter((r) => r.team === team);
   const pit = pitOf(team);
   scrollTo(0, 0);
+  // FTCScout's numbers come after the team's own scouting, which is what a scout opens the page for.
+  const info = `<section class="card" id="ftcscout" data-team="${team}"><h2>FTCScout</h2><p class="muted">Looking up team ${team}…</p></section>`;
   ui.page.innerHTML = `
     <div class="row"><h1>Team ${team}</h1>
       <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="back" class="secondary">Back</button></div>
     </div>
-    <section class="card" id="ftcscout" data-team="${team}"><h2>FTCScout</h2><p class="muted">Looking up team ${team}…</p></section>
     ${pit ? comparison(pit, matches) : ''}
     ${matches.length ? `
       ${rankingHelp(matches)}
@@ -114,6 +115,7 @@ export function renderTeam(team) {
         <p>${esc(averageText(averages(matches)))}</p>
         <ul class="tally-list">${tapAverages(matches)}</ul>
       </section>
+      ${info}
       <section class="card">
         <h2>Matches</h2>
         <ul class="route-list">${matches.map((m, i) => `
@@ -123,7 +125,7 @@ export function renderTeam(team) {
           </button></li>`).join('')}
         </ul>
       </section>`
-    : `<div class="card empty"><p class="muted">No matches scouted yet.</p></div>`}
+    : `<div class="card empty"><p class="muted">No matches scouted yet.</p></div>${info}`}
     ${routes.length ? `
       <section class="card">
         <h2>Routes</h2>

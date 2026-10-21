@@ -121,6 +121,20 @@ export const watchMatches = watch(matches, matchListeners);
 export const watchButtons = watch(buttons, buttonListeners);
 export const watchPits = watch(pits, pitListeners);
 
+let robot = null;
+const robotListeners = new Set();
+export function watchRobot(callback) {
+  const listener = () => callback(structuredClone(robot));
+  robotListeners.add(listener);
+  listener();
+  return () => robotListeners.delete(listener);
+}
+
+export function saveRobot(next) {
+  robot = { ...next };
+  setTimeout(() => robotListeners.forEach((listener) => listener()));
+}
+
 export function savePit(pit) {
   pits.set(String(pit.team), { ...structuredClone(pit), by: USER.uid });
   setTimeout(() => pitListeners.forEach((listener) => listener()));

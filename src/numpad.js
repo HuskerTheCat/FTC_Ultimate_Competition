@@ -13,10 +13,12 @@ export function wireNumpads(root) {
   }
 }
 
-// The new number goes into the input when the pad closes, with an input event so the page can react to it.
+// The new number goes into the input when the pad closes, with an input event so the page can react to it. Like a
+// selected field, the first digit typed replaces the old number; Backspace edits it instead.
 function openPad(input) {
   pad ??= document.body.appendChild(Object.assign(document.createElement('dialog'), { className: 'numpad' }));
   let value = input.value;
+  let fresh = true;
   pad.innerHTML = `
     <form method="dialog">
       <div class="row"><span class="muted">${esc(input.dataset.numpad)}</span><output>${esc(value)}</output></div>
@@ -28,6 +30,8 @@ function openPad(input) {
     </form>`;
   const output = pad.querySelector('output');
   const press = (key) => {
+    if (fresh && key !== 'back') value = '';
+    fresh = false;
     if (key === 'back') value = value.slice(0, -1);
     else if (value.length < input.maxLength && !(key === '0' && !value)) value += key;
     output.textContent = value;

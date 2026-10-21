@@ -4,8 +4,9 @@
 export const esc = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// Asks before something that can't be undone, in the page's dialog. `onConfirm` runs only when the action is chosen.
-export function confirmDialog(dialog, { title, text, action }, onConfirm) {
+// Asks before something that can't be undone, in the page's dialog. `onConfirm` runs only when the action is chosen,
+// `onCancel` (if given) when the dialog is closed any other way.
+export function confirmDialog(dialog, { title, text, action }, onConfirm, onCancel = null) {
   dialog.innerHTML = `
     <form method="dialog" class="card">
       <h2>${esc(title)}</h2>
@@ -15,9 +16,12 @@ export function confirmDialog(dialog, { title, text, action }, onConfirm) {
         <button type="button" id="confirm-action" class="danger">${esc(action)}</button>
       </div>
     </form>`;
+  let confirmed = false;
   dialog.querySelector('#confirm-action').onclick = () => {
+    confirmed = true;
     dialog.close();
     onConfirm();
   };
+  dialog.addEventListener('close', () => { if (!confirmed) onCancel?.(); }, { once: true });
   dialog.showModal();
 }

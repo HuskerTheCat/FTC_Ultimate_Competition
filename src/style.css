@@ -449,3 +449,19 @@ label:has(.team-name) { min-width: 0; }
 .team-name:empty { display: none; }
 /* Counter columns keep the name's line even when empty, so their buttons stay side by side. */
 .counter .team-name:empty { display: block; min-height: 1lh; }
+/* In a narrow counter column the label gets its own line, with the points and the count below it. */
+.counter > section { container-type: inline-size; }
+@container (max-width: 220px) {
+  .tally { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 6px; }
+  .tally > span:first-child { display: contents; }
+  .tally > span:first-child > :first-child { grid-column: 1 / -1; }
+}
+/* Two columns on a phone: tighter spacing so labels like "Yellow card" fit on one line. */
+.counter { container-type: inline-size; }
+@container (max-width: 400px) {
+  .counter > .card { padding: 8px; }
+  .counter .tally-row { gap: 4px; }
+  .counter .tally-row > .tally, .counter .tally { padding: 6px 8px; }
+  .counter .minus { width: 28px; }
+}
+.route-summary { justify-content: flex-start; margin: 0; }

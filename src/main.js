@@ -54,7 +54,7 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], pits: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], pits: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -598,6 +598,7 @@ async function start() {
         if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
       }, onError),
       fb.watchButtons((buttons) => { state.buttons = buttons; }, onError),
+      fb.watchRobot((robot) => { state.robot = robot; }, onError),
       fb.watchPits((pits) => {
         state.pits = pits;
         if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();

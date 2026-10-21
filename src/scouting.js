@@ -191,12 +191,30 @@ function openSetup(after = null, notice = '') {
     if (!teams.length) return ui.showError(new Error('Type at least one team number.'));
     const twice = teams.find((t, i) => teams.findIndex((other) => other.team === t.team) !== i);
     if (twice) return ui.showError(new Error(`Team ${twice.team} is typed in twice.`));
-    openCounter({ event: form.event.value.trim(), match: Number(form.match.value) },
+    const event = form.event.value.trim();
+    const number = Number(form.match.value);
+    // Scouting a team again in the same match replaces this scout's earlier record, so it isn't counted twice.
+    const redo = ui.state.matches.filter((m) => m.scout === ui.state.user.uid && m.match === number
+      && eventKey(m.event) === eventKey(event) && teams.some((t) => t.team === m.team));
+    const start = () => openCounter({ event, match: number, replaces: redo.map((m) => m.id) },
       teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: [] })));
+    if (!redo.length) return start();
+    confirmDialog(ui.dialog, {
+      title: 'Scouted already',
+      text: `You already scouted ${redo.map((m) => m.team).join(', ')} in match ${number}. Saving replaces it.`,
+      action: 'Scout again',
+    }, start);
   };
 }
 
 // ---------- counters ----------
+
+// Takes one tap of `id` in period `p` off a team's sheet, and the latest matching tap off its Undo list.
+function removeTap(sheet, p, id) {
+  if (--sheet.counts[p][id] === 0) delete sheet.counts[p][id];
+  const at = sheet.taps.findLastIndex((tap) => tap.period === p && tap.id === id);
+  if (at >= 0) sheet.taps.splice(at, 1);
+}
 
 // One column per team with a big button for everything that scores in the current period, the fouls, the cards and
 // the team's custom buttons; things done once a period (leave, park) are checkboxes. Each counter has a minus, and Undo
@@ -223,21 +241,14 @@ function openCounter(match, sheets, period = 'auto') {
 
   const tally = (b, sheet) => (b.once ? `
     <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
-      <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
+      <span><span>${esc(b.label)}</span><span class="small">${esc(b.points)}</span></span><span class="box"></span>
     </button>` : `
     <div class="tally-row">
       <button type="button" class="tally${b.foul ? ' foul' : ''}${b.card ? ` card-${b.card}` : ''}" data-id="${esc(b.id)}">
-        <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
+        <span><span>${esc(b.label)}</span><span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
       </button>
       <button type="button" class="minus secondary" data-minus="${esc(b.id)}" aria-label="One less ${esc(b.label)}" ${sheet.counts[period][b.id] ? '' : 'disabled'}>−</button>
     </div>`);
-
-  // Takes one tap of `id` off, and the latest matching tap off the Undo list.
-  const removeTap = (sheet, p, id) => {
-    if (--sheet.counts[p][id] === 0) delete sheet.counts[p][id];
-    const at = sheet.taps.findLastIndex((tap) => tap.period === p && tap.id === id);
-    if (at >= 0) sheet.taps.splice(at, 1);
-  };
 
   function render() {
     saveDraft();
@@ -312,7 +323,7 @@ function openCounter(match, sheets, period = 'auto') {
       sheets[e.target.closest('[data-sheet]').dataset.sheet].notes = e.target.value;
       saveDraft();
     };
-    ui.page.querySelector('#custom-button').onclick = () => openButtonDialog(render);
+    ui.page.querySelector('#custom-button').onclick = () => openButtonDialog(sheets, render);
     ui.page.querySelector('#cancel').onclick = () => {
       const scouted = sheets.some((sheet) => sheet.notes || Object.keys(PERIODS).some((p) => Object.keys(sheet.counts[p]).length));
       const discard = () => {
@@ -323,6 +334,7 @@ function openCounter(match, sheets, period = 'auto') {
       confirmDialog(ui.dialog, { title: `Discard match ${match.match}?`, text: 'What you tapped for this match won’t be saved.', action: 'Discard' }, discard);
     };
     ui.page.querySelector('#save-match').onclick = () => {
+      for (const id of match.replaces ?? []) ui.fb.deleteMatch(id).catch(ui.showError);
       for (const sheet of sheets) {
         ui.fb.saveMatch({
           season: season.id, event: match.event, match: match.match, team: sheet.team, alliance: sheet.alliance,
@@ -338,8 +350,9 @@ function openCounter(match, sheets, period = 'auto') {
 }
 
 // The team's custom buttons, for things the season's buttons don't cover: add one, or delete one nobody needs. Points
-// can be 0 for things only worth noting. Deleting a button keeps the points already saved with matches.
-function openButtonDialog(onChange) {
+// can be 0 for things only worth noting. Deleting a button keeps the points already saved with matches, and takes its
+// taps off the match being scouted (`sheets`), after asking.
+function openButtonDialog(sheets, onChange) {
   const render = () => {
     ui.dialog.innerHTML = `
       <form method="dialog" class="card">
@@ -364,10 +377,19 @@ function openButtonDialog(onChange) {
     form.querySelector('.tally-list')?.addEventListener('click', (e) => {
       const id = e.target.closest('[data-delete]')?.dataset.delete;
       if (!id) return;
-      ui.fb.deleteButton(id).catch(ui.showError);
-      ui.state.buttons = ui.state.buttons.filter((b) => b.id !== id);
-      render();
-      onChange();
+      const button = ui.state.buttons.find((b) => b.id === id);
+      const tapped = sheets.some((sheet) => Object.keys(PERIODS).some((p) => sheet.counts[p][id]));
+      confirmDialog(ui.dialog, {
+        title: `Delete ${button.label}?`,
+        text: `It goes for everyone on your team.${tapped ? ' Its taps in this match come off.' : ''} Saved matches keep their points.`,
+        action: 'Delete',
+      }, () => {
+        ui.fb.deleteButton(id).catch(ui.showError);
+        ui.state.buttons = ui.state.buttons.filter((b) => b.id !== id);
+        for (const sheet of sheets) for (const p of Object.keys(PERIODS)) while (sheet.counts[p][id]) removeTap(sheet, p, id);
+        onChange();
+        openButtonDialog(sheets, onChange);
+      }, () => openButtonDialog(sheets, onChange));
     });
     form.querySelector('#add-button').onclick = () => {
       const label = form.label.value.trim();
