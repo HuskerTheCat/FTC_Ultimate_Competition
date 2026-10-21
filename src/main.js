@@ -17,14 +17,14 @@ import { startScouting, renderScoutList, showMatchList } from './scouting.js';
 import { startTeams, renderTeamList, showTeamList } from './teams.js';
 import { startPits } from './pits.js';
 
-const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Scout/';
+const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Competition/';
 // Scout uses the same Firebase setup and the same account data as Inventory, so it shares Inventory's guides for now.
 const PRIVACY_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Inventory/privacy.html';
 const SETUP_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Inventory/setup.html';
 const GUIDES_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Inventory/guides.html';
 const GUIDES_LINK = `<a class="guides-link" href="${GUIDES_URL}" target="_blank" rel="noopener">Guides</a>`;
 // The AGPL license asks anyone hosting a version of the app to offer its source; forks should point this at their own code.
-const SOURCE_URL = 'https://github.com/HuskerTheCat/FTC_Ultimate_Scout';
+const SOURCE_URL = 'https://github.com/HuskerTheCat/FTC_Ultimate_Competition';
 // Opening the app with ?demo runs it on sample data instead of a team's Firebase project (see demo.js).
 const DEMO = new URLSearchParams(location.search).has('demo');
 // The live website (main) stays locked until the app is ready: just the welcome page, with sign-in, setup and the demo
