@@ -1,7 +1,7 @@
 {
-  "name": "ftc-ultimate-scout",
+  "name": "ftc-ultimate-competition",
   "version": "0.1.0",
-  "description": "Match scouting for FTC robotics teams: web, Windows and Android.",
+  "description": "Everything an FTC robotics team needs at a competition: web, Windows and Android.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

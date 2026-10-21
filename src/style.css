@@ -76,7 +76,7 @@ a { color: var(--accent); }
   background: url(../public/icon.svg) center / contain no-repeat;
 }
 .center > .card { box-shadow: none; }
-/* The home page's cube opens the app switcher: Inventory, Scout and Design, each with its own cube. */
+/* The home page's cube opens the app switcher: Inventory, Competition and Design, each with its own cube. */
 .center > .lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 .menuwrap { position: relative; display: flex; }
 #apps-toggle { flex: none; min-height: 0; margin: -3px; padding: 3px; background: none; border: none; }
@@ -111,7 +111,7 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
     body:has(> #app > .center)::after { bottom: auto; height: calc(30% + 70lvh); will-change: transform; animation: topo-drift linear both; animation-timeline: scroll(root); }
   }
 }
-/* The app's name in the title font: "Scout" lighter and orange, under "FTC Ultimate". */
+/* The app's name in the title font: "Competition" lighter and orange, under "FTC Ultimate". */
 .brand { font: 800 1.6rem/1.15 Orbitron, sans-serif; letter-spacing: 0; }
 .brand .app-name { display: block; font-weight: 500; color: var(--accent); }
 /* Guides button, top right of the first screens. */
@@ -233,8 +233,8 @@ button.link.inline { padding: 2px 0; align-self: auto; text-decoration: underlin
 /* Signed in: the header with the team's name and the ☰ menu, then the tabs. */
 header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 header h1 { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* The team's name with the app's, as in Inventory: the cube, the team in the title font, "Scout" lighter and orange.
-   Phones put "Scout" under the team's name, leaving it room beside Scan and the menu. */
+/* The team's name with the app's, as in Inventory: the cube, the team in the title font, "Competition" lighter and orange.
+   Phones put "Competition" under the team's name, leaving it room beside Scan and the menu. */
 header .lockup { display: flex; align-items: center; gap: 8px; min-width: 0; }
 header h1.team-brand { display: flex; align-items: center; gap: 12px; font: 800 1.4rem/1.2 Orbitron, sans-serif; letter-spacing: 0; }
 .team-brand .team { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

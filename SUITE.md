@@ -1,6 +1,6 @@
 # FTC Ultimate suite notes
 
-FTC Ultimate Scout and [FTC Ultimate Inventory](https://github.com/HuskerTheCat/FTC_Ultimate_Inventory) share one Firebase project per team. This file lists what they share and logs changes that affect the other app. Read the other app's `SUITE.md` before changing anything below, and add a dated line to both files when you do.
+FTC Ultimate Competition (called Scout below; it was FTC Ultimate Scout until 2026-10-21) and [FTC Ultimate Inventory](https://github.com/HuskerTheCat/FTC_Ultimate_Inventory) share one Firebase project per team. This file lists what they share and logs changes that affect the other app. Read the other app's `SUITE.md` before changing anything below, and add a dated line to both files when you do.
 
 ## Shared
 
@@ -12,7 +12,7 @@ FTC Ultimate Scout and [FTC Ultimate Inventory](https://github.com/HuskerTheCat/
 - **Hub**: `ultimate-inventory-hub` (`hub.rules` in Inventory's repo). Team-level data only, never anything about a person.
 - **Collection names**: Inventory's are unprefixed; Scout's start with `scout`.
 - **Device storage**: both websites share `huskerthecat.github.io`. Scout uses `ftc-scout-*` keys and starts Firebase as the named app `scout`.
-- **Brand**: the split cube logo (Inventory blue, Scout orange, Design green), Orbitron for names, the topo background.
+- **Brand**: the split cube logo (Inventory blue, Competition orange, Design green), Orbitron for names, the topo background.
 
 ## Changes
 
@@ -26,3 +26,4 @@ FTC Ultimate Scout and [FTC Ultimate Inventory](https://github.com/HuskerTheCat/
 - 2026-10-21: Rules: `scoutRulesVersion` 5 lets `scoutMatches` records carry `events` (each tap in order: period, id and seconds since Start match, or null without the match clock). Inventory’s rules unchanged. Copy the combined file into Inventory’s repo when this merges.
 - 2026-10-21: Rules: `scoutRulesVersion` 6 adds `scoutAlliances/{id}` (one alliance's result in one match, scouted as a whole: teams (up to 2), counts, points, notes, events; members read, add their own, delete). Inventory’s rules unchanged. Copy the combined file into Inventory’s repo when this merges.
 - 2026-10-21: Scout's signed-in screens now use Inventory's layout: the header (cube with the app switcher, team name in Orbitron with "Scout" under it on phones, an icon-only Scan on phones, the ☰ menu) and the contour lines behind it, a picker under the header (Scout: events, like Inventory's inventory picker), a search row, and the main action as a floating button on phones. Scout keeps its bottom tab bar.
+- 2026-10-21: Scout is renamed **FTC Ultimate Competition**, the app for everything a team needs at a competition. Only the shown name changed (page title, home page, header, app switcher entry "Competition"). The repo, website address, `scout` collections, `ftc-scout-*` keys, the `scout` Firebase app and `scoutRulesVersion` are unchanged, so no rules or data change. Inventory and Design: rename the middle entry of your app switcher from "Scout" to "Competition".

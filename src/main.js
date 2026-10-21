@@ -130,7 +130,7 @@ const APP_SWITCHER = `
     <div id="apps-menu" class="menu" hidden>
       <h3>FTC Ultimate</h3>
       <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Inventory/"><span class="app-icon inventory"></span>Inventory</a>
-      <button class="menu-item" aria-current="true"><span class="app-icon scout"></span>Scout</button>
+      <button class="menu-item" aria-current="true"><span class="app-icon scout"></span>Competition</button>
       <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Design/"><span class="app-icon design"></span>Design</a>
     </div>
   </div>`;
@@ -140,7 +140,7 @@ function renderWelcome() {
     <main class="center wide">
       <div class="lockup">
         ${APP_SWITCHER}
-        <h1 class="brand"><span>FTC Ultimate <span class="app-name">Scout</span></span></h1>
+        <h1 class="brand"><span>FTC Ultimate <span class="app-name">Competition</span></span></h1>
       </div>
       <p id="error" class="error" role="alert" hidden></p>
       <div class="card split">
@@ -387,7 +387,7 @@ function renderApp() {
     <header>
       <div class="lockup">
         ${APP_SWITCHER}
-        <h1 class="team-brand"><span class="team">${esc(state.connection.teamName)}</span> <span class="app-name">Scout</span></h1>
+        <h1 class="team-brand"><span class="team">${esc(state.connection.teamName)}</span> <span class="app-name">Competition</span></h1>
       </div>
       <div class="row">
         <button id="scan" class="secondary with-icon" aria-label="Scan a route QR code" title="Scan a route QR code">${ICON_SCAN}<span>Scan</span></button>
@@ -483,7 +483,7 @@ async function openTeamDialog() {
           ${m.uid === team.owner ? '<span class="muted small">Owner</span>' : ''}
         </li>`).join('')}
       </ul>
-      <p class="muted small">FTC Ultimate Scout is open source under the AGPL v3. <a href="${SOURCE_URL}" target="_blank" rel="noopener">Source code</a></p>
+      <p class="muted small">FTC Ultimate Competition is open source under the AGPL v3. <a href="${SOURCE_URL}" target="_blank" rel="noopener">Source code</a></p>
       <div class="row"><button value="close" class="secondary">Close</button></div>
     </form>`;
   copyButton(dialog.querySelector('#copy-link'), link);
@@ -522,7 +522,7 @@ function openRulesDialog(open) {
 // A route link opened by someone who isn't signed in: the route plays on its own, with a way into the app.
 function renderSharedRoute(route) {
   app.innerHTML = `
-    <header><h1 class="brand">FTC Ultimate <span class="app-name">Scout</span></h1><a href="./" class="link">Open the app</a></header>
+    <header><h1 class="brand">FTC Ultimate <span class="app-name">Competition</span></h1><a href="./" class="link">Open the app</a></header>
     <p id="error" class="error" role="alert" hidden></p>
     <main id="page" class="page"></main>
     <dialog id="dialog"></dialog>`;
