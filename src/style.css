@@ -389,3 +389,13 @@ textarea.notes { font-family: inherit; font-size: 0.9rem; }
 #find-team input { width: 150px; }
 .page > .row.actions { justify-content: flex-start; }
 #setup > .segmented { align-self: flex-start; }
+/* Pit scouting: a small number box per claim, and the claims set beside match scouting on a team's page. */
+.tally-list > li:has(> .claim) { align-items: center; }
+.claim { width: 72px; flex: none; text-align: center; }
+.compare { width: 100%; border-collapse: collapse; }
+.compare :is(th, td) { padding: 6px 0; border-bottom: 1px solid var(--border); text-align: right; font-weight: 400; }
+.compare th:first-child { text-align: left; }
+.compare thead th { color: var(--muted); font-size: 0.875rem; }
+.compare td { width: 90px; font-weight: 700; }
+.compare .total :is(th, td) { font-weight: 700; }
+.compare td.short { color: var(--danger); }

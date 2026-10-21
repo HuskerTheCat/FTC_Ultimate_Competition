@@ -2,6 +2,7 @@
 // Each team's result is its own doc, so scouts watching the same match never overwrite each other.
 import season from './seasons/2027.js';
 import { esc } from './ui.js';
+import { openPitForm } from './pits.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 'Blue 2']];
@@ -41,7 +42,9 @@ export const pointsText = ({ auto, teleop, fouls }) =>
 export function renderScoutList() {
   const matches = [...ui.state.matches].sort((a, b) => b.match - a.match || a.team - b.team);
   ui.page.innerHTML = `
-    <div class="row"><h1>Scout</h1><button id="new-match">Scout a match</button></div>
+    <div class="row"><h1>Scout</h1>
+      <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="new-match">Scout a match</button></div>
+    </div>
     <p class="muted">${esc(season.name)}</p>
     ${matches.length ? `
       <ul class="route-list">${matches.map((m) => `
@@ -52,6 +55,7 @@ export function renderScoutList() {
       </ul>`
     : '<div class="card empty"><p class="muted">No matches scouted yet.</p></div>'}`;
   ui.page.querySelector('#new-match').onclick = () => openSetup();
+  ui.page.querySelector('#pit-scout').onclick = () => openPitForm(null, renderScoutList);
   ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-id]');
     if (card) openMatchDialog(ui.state.matches.find((m) => m.id === card.dataset.id));

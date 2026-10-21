@@ -96,6 +96,14 @@ const matches = new Map([
     counts: counts({}, { garden: 8, major: 1 }), points: { auto: 0, teleop: 8, fouls: 20 } }],
 ]);
 const buttons = new Map([['defended', { label: 'Played defense', points: 0 }]]);
+// 67890 oversells its teleop in the pits; 33333 was only pit scouted.
+const pits = new Map([
+  ['67890', { season: '2027', team: 67890, by: 'scout2', drivetrain: 'Mecanum', notes: 'Says they never miss the hive tip.',
+    claims: counts({ leave: 1, hiveTip: 1, park: 1 }, { cell: 14, flower: 4, park: 1 }) }],
+  ['33333', { season: '2027', team: 33333, by: 'demo', drivetrain: 'Tank', notes: 'New team, parks every match.',
+    claims: counts({ leave: 1, park: 1 }, { garden: 6, park: 1 }) }],
+]);
+const pitListeners = new Set();
 const matchListeners = new Set();
 const buttonListeners = new Set();
 let nextId = 1;
@@ -108,6 +116,12 @@ const watch = (map, listeners) => (callback) => {
 
 export const watchMatches = watch(matches, matchListeners);
 export const watchButtons = watch(buttons, buttonListeners);
+export const watchPits = watch(pits, pitListeners);
+
+export function savePit(pit) {
+  pits.set(String(pit.team), { ...structuredClone(pit), by: USER.uid });
+  setTimeout(() => pitListeners.forEach((listener) => listener()));
+}
 
 export function saveMatch(match) {
   matches.set(`match${nextId++}`, { ...structuredClone(match), scout: USER.uid });

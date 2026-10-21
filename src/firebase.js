@@ -162,3 +162,10 @@ export function saveButton(button, onError) {
   setDoc(ref, button).catch(onError);
   return ref.id;
 }
+
+export const watchPits = (callback, onError) => onSnapshot(collection(db, 'scoutPits'), (snap) => callback(listOf(snap)), onError);
+
+// A team's pit interview, kept under its team number so the latest one replaces the last.
+export function savePit(pit, onError) {
+  setDoc(doc(db, 'scoutPits', String(pit.team)), { ...pit, by: auth.currentUser.uid, updatedAt: serverTimestamp() }).catch(onError);
+}

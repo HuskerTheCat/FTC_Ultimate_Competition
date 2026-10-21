@@ -288,6 +288,21 @@ service cloud.firestore {
       allow delete: if isMember();
     }
 
+    // A team's pit interview from the Scout tab, under its team number. Any member can redo or delete it.
+    match /scoutPits/{team} {
+      allow read: if isMember();
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['season', 'team', 'claims', 'drivetrain', 'notes', 'by', 'updatedAt'])
+        && request.resource.data.season is string && request.resource.data.season.size() <= 20
+        && request.resource.data.team is int && string(request.resource.data.team) == team
+        && request.resource.data.claims is map
+        && request.resource.data.drivetrain is string && request.resource.data.drivetrain.size() <= 30
+        && request.resource.data.notes is string && request.resource.data.notes.size() <= 2000
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isMember();
+    }
+
     // A team-wide custom button for the Scout tab.
     match /scoutButtons/{id} {
       allow read: if isMember();

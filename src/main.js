@@ -15,6 +15,7 @@ import { routeFromLink } from './route.js';
 import { startRoutes, renderRouteList, openSharedRoute } from './routes.js';
 import { startScouting, renderScoutList } from './scouting.js';
 import { startTeams, renderTeamList } from './teams.js';
+import { startPits } from './pits.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Scout/';
 // Scout uses the same Firebase setup and the same account data as Inventory, so it shares Inventory's guides for now.
@@ -53,7 +54,7 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], pits: [], sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -594,6 +595,10 @@ async function start() {
         if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
       }, onError),
       fb.watchButtons((buttons) => { state.buttons = buttons; }, onError),
+      fb.watchPits((pits) => {
+        state.pits = pits;
+        if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
+      }, onError),
     ];
     stopWatching = () => stops.forEach((stop) => stop());
   };
@@ -622,5 +627,6 @@ const tabContext = {
 startRoutes(tabContext);
 startScouting(tabContext);
 startTeams(tabContext);
+startPits(tabContext);
 startStatusBanners();
 start();
