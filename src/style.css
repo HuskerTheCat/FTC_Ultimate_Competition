@@ -414,3 +414,14 @@ dialog.numpad { margin: auto auto 0; width: min(420px, 100%); border-radius: 16p
 .numpad .keys button:not([data-key]) { font-size: 1rem; }
 dialog form > section { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 dialog form > section > ul { align-self: stretch; }
+/* A folding group of counters, such as pollen and nectar. */
+.group { border: 1px solid var(--border); border-radius: 12px; padding: 0 8px; }
+.group[open] { padding-bottom: 8px; }
+.group > summary { display: flex; justify-content: space-between; align-items: center; min-height: 52px; padding: 0 4px; font-weight: 600; cursor: pointer; list-style: none; }
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary > span::before { content: '▸ '; color: var(--muted); }
+.group[open] > summary > span::before { content: '▾ '; }
+.group > summary > strong { font-size: 1.3rem; }
+.group > .tally + .tally, .group > summary + .tally { margin-top: 8px; }
+.tally > span:first-child { flex: 1; min-width: 0; }
+.tally > :last-child { flex: none; }

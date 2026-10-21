@@ -147,11 +147,12 @@ function openSetup() {
 // Nothing is saved until Save.
 function openCounter(match, teams) {
   let period = 'auto';
-  const sheets = teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '' }));
+  // open: the groups (season.actions' group) this team's column shows unfolded.
+  const sheets = teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: new Set() }));
 
   const buttonsFor = () => [
     ...season.actions.filter((a) => a.points[period] != null)
-      .map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}`, once: a.once })),
+      .map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}`, once: a.once, group: a.group })),
     ...season.fouls.map((f) => ({ id: f.id, label: f.label, points: `${f.points} to them`, foul: true })),
     ...ui.state.buttons.map((b) => ({ id: b.id, label: b.label, points: `${b.points >= 0 ? '+' : ''}${b.points}` })),
   ];
@@ -160,6 +161,14 @@ function openCounter(match, teams) {
     const { auto, teleop } = matchPoints(counts, ui.state.buttons);
     return auto + teleop;
   };
+
+  const tally = (b, sheet) => (b.once ? `
+    <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
+      <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
+    </button>` : `
+    <button type="button" class="tally${b.foul ? ' foul' : ''}" data-id="${esc(b.id)}">
+      <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
+    </button>`);
 
   function render() {
     const buttons = buttonsFor();
@@ -172,13 +181,18 @@ function openCounter(match, teams) {
         <section class="card" data-sheet="${i}">
           <div class="row"><span class="chip ${sheet.alliance}">${sheet.team}</span>
             <strong>${scored(sheet.counts)} pts</strong></div>
-          ${buttons.map((b) => b.once ? `
-            <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
-              <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
-            </button>` : `
-            <button type="button" class="tally${b.foul ? ' foul' : ''}" data-id="${esc(b.id)}">
-              <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
-            </button>`).join('')}
+          ${buttons.map((b, at) => {
+            if (!b.group) return tally(b, sheet);
+            // A group is drawn once, where its first button would be.
+            if (buttons.findIndex((other) => other.group === b.group) !== at) return '';
+            const members = buttons.filter((other) => other.group === b.group);
+            const taps = members.reduce((sum, m) => sum + (sheet.counts[period][m.id] ?? 0), 0);
+            return `
+              <details class="group" data-group="${esc(b.group)}" ${sheet.open.has(b.group) ? 'open' : ''}>
+                <summary><span>${esc(b.group)}</span><strong>${taps}</strong></summary>
+                ${members.map((m) => tally(m, sheet)).join('')}
+              </details>`;
+          }).join('')}
           <button type="button" class="secondary undo" ${sheet.taps.length ? '' : 'disabled'}>Undo</button>
           <textarea class="notes" rows="2" maxlength="2000" placeholder="Notes">${esc(sheet.notes)}</textarea>
         </section>`).join('')}
@@ -211,6 +225,12 @@ function openCounter(match, teams) {
         render();
       }
     };
+    // Folding a group is remembered for that team while the match is scouted. Toggle events don't bubble, hence capture.
+    ui.page.querySelector('.counter').addEventListener('toggle', (e) => {
+      const { open } = sheets[e.target.closest('[data-sheet]').dataset.sheet];
+      if (e.target.open) open.add(e.target.dataset.group);
+      else open.delete(e.target.dataset.group);
+    }, true);
     ui.page.querySelector('.counter').oninput = (e) => {
       sheets[e.target.closest('[data-sheet]').dataset.sheet].notes = e.target.value;
     };
