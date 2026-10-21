@@ -10,11 +10,11 @@ import {
 import { scanCode } from './scanner.js';
 import { startStatusBanners, checkRules } from './status.js';
 import season from './seasons/2027.js';
-import { esc } from './ui.js';
+import { esc, icon, ICON_SCAN } from './ui.js';
 import { routeFromLink } from './route.js';
-import { startRoutes, renderRouteList, openSharedRoute } from './routes.js';
-import { startScouting, renderScoutList } from './scouting.js';
-import { startTeams, renderTeamList } from './teams.js';
+import { startRoutes, renderRouteList, showRouteList, openSharedRoute, scanRoute } from './routes.js';
+import { startScouting, renderScoutList, showMatchList } from './scouting.js';
+import { startTeams, renderTeamList, showTeamList } from './teams.js';
 import { startPits } from './pits.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Scout/';
@@ -39,8 +39,6 @@ function setTheme(theme) {
 }
 setTheme(localStorage.getItem(THEME_KEY) ?? 'dark');
 
-// Small line icons that take the button's text color.
-const icon = (paths) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const ICON_MENU = icon('<path d="M4 6h16M4 12h16M4 18h16"/>');
 
 // The app's three parts, in tab order.
@@ -125,19 +123,23 @@ function renderLoading() {
   app.innerHTML = '<main class="center" aria-busy="true"></main>';
 }
 
+// The cube, which opens a menu of the FTC Ultimate apps (see wireAppSwitcher), on the welcome page and in the header.
+const APP_SWITCHER = `
+  <div class="menuwrap">
+    <button id="apps-toggle" aria-label="FTC Ultimate apps" title="FTC Ultimate apps" aria-haspopup="true" aria-expanded="false" aria-controls="apps-menu"><span class="app-icon scout"></span></button>
+    <div id="apps-menu" class="menu" hidden>
+      <h3>FTC Ultimate</h3>
+      <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Inventory/"><span class="app-icon inventory"></span>Inventory</a>
+      <button class="menu-item" aria-current="true"><span class="app-icon scout"></span>Scout</button>
+      <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Design/"><span class="app-icon design"></span>Design</a>
+    </div>
+  </div>`;
+
 function renderWelcome() {
   app.innerHTML = `
     <main class="center wide">
       <div class="lockup">
-        <div class="menuwrap">
-          <button id="apps-toggle" aria-label="FTC Ultimate apps" title="FTC Ultimate apps" aria-haspopup="true" aria-expanded="false" aria-controls="apps-menu"><span class="app-icon scout"></span></button>
-          <div id="apps-menu" class="menu" hidden>
-            <h3>FTC Ultimate</h3>
-            <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Inventory/"><span class="app-icon inventory"></span>Inventory</a>
-            <button class="menu-item" aria-current="true"><span class="app-icon scout"></span>Scout</button>
-            <a class="menu-item" href="https://huskerthecat.github.io/FTC_Ultimate_Design/"><span class="app-icon design"></span>Design</a>
-          </div>
-        </div>
+        ${APP_SWITCHER}
         <h1 class="brand"><span>FTC Ultimate <span class="app-name">Scout</span></span></h1>
       </div>
       <p id="error" class="error" role="alert" hidden></p>
@@ -383,14 +385,20 @@ function renderApp() {
   const light = document.documentElement.dataset.theme === 'light';
   app.innerHTML = `
     <header>
-      <h1 class="brand">${esc(state.connection.teamName)} <span class="app-name">Scout</span></h1>
-      <div class="menuwrap">
-        <button id="menu-toggle" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu">${ICON_MENU}</button>
-        <div id="menu" class="menu" hidden>
-          <button id="team" class="menu-item">Team</button>
-          <button id="theme" class="menu-item" role="switch" aria-checked="${light}">Pain and suffering mode<span class="switch" aria-hidden="true"></span></button>
-          <button id="signout" class="menu-item">Sign out</button>
-          <p class="menu-version">Version ${esc(__APP_VERSION__)}</p>
+      <div class="lockup">
+        ${APP_SWITCHER}
+        <h1 class="team-brand"><span class="team">${esc(state.connection.teamName)}</span> <span class="app-name">Scout</span></h1>
+      </div>
+      <div class="row">
+        <button id="scan" class="secondary with-icon" aria-label="Scan a route QR code" title="Scan a route QR code">${ICON_SCAN}<span>Scan</span></button>
+        <div class="menuwrap">
+          <button id="menu-toggle" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu">${ICON_MENU}</button>
+          <div id="menu" class="menu" hidden>
+            <button id="team" class="menu-item">Team</button>
+            <button id="theme" class="menu-item" role="switch" aria-checked="${light}">Pain and suffering mode<span class="switch" aria-hidden="true"></span></button>
+            <button id="signout" class="menu-item">Sign out</button>
+            <p class="menu-version">Version ${esc(__APP_VERSION__)}</p>
+          </div>
         </div>
       </div>
     </header>
@@ -404,6 +412,9 @@ function renderApp() {
   // An error belongs to the screen it happened on, so a new screen clears it.
   new MutationObserver(() => { app.querySelector('#error').hidden = true; }).observe(app.querySelector('#page'), { childList: true });
   app.querySelector('#menu-toggle').onclick = () => showMenu(app.querySelector('#menu').hidden);
+  // Scan reads another team's route QR code from any tab; the route opens in Routes.
+  app.querySelector('#scan').onclick = scanRoute;
+  wireAppSwitcher();
   app.querySelector('#team').onclick = () => {
     showMenu(false);
     openTeamDialog().catch(showError);
@@ -589,19 +600,19 @@ async function start() {
       fb.watchRoutes((routes) => {
         state.routes = routes;
         // The list follows teammates' changes; an open editor or player is left alone.
-        if (state.tab === 'routes' && app.querySelector('#new-route')) renderRouteList();
+        if (app.querySelector('#route-list')) showRouteList();
       }, onError),
       fb.watchMatches((matches) => {
         state.matches = matches;
         // Lists follow teammates' scouting; counters and team pages are left alone.
-        if (state.tab === 'scout' && app.querySelector('#new-match')) renderScoutList();
-        if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
+        if (app.querySelector('#match-list')) showMatchList();
+        if (app.querySelector('#team-list')) showTeamList();
       }, onError),
       fb.watchButtons((buttons) => { state.buttons = buttons; }, onError),
       fb.watchRobot((robot) => { state.robot = robot; }, onError),
       fb.watchPits((pits) => {
         state.pits = pits;
-        if (state.tab === 'teams' && app.querySelector('#find-team')) renderTeamList();
+        if (app.querySelector('#team-list')) showTeamList();
       }, onError),
     ];
     stopWatching = () => stops.forEach((stop) => stop());

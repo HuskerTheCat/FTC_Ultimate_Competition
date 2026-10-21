@@ -1,6 +1,7 @@
 // The Teams tab: every team the team has scouted, and a page per team with its averages, matches, notes and routes.
 import { esc } from './ui.js';
-import { labelOf, matchPoints, pointsText, openMatchDialog, eventKey, isOnce } from './scouting.js';
+import { labelOf, matchPoints, pointsText, openMatchDialog, isOnce } from './scouting.js';
+import { eventKey, eventPickerHtml, wireEventPicker, fillEventPicker, inChosenEvent } from './events.js';
 import { openRoute } from './routes.js';
 import { pitOf, openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
@@ -15,11 +16,11 @@ const oneDecimal = (n) => String(Math.round(n * 10) / 10);
 let ui;
 export const startTeams = (context) => { ui = context; };
 
-// A team's matches, one each even when several scouts watched the team in the same match: their counts and points
-// are averaged, so a match never counts twice. `records` keeps each scout's own record.
+// A team's matches at the chosen event, one each even when several scouts watched the team in the same match: their
+// counts and points are averaged, so a match never counts twice. `records` keeps each scout's own record.
 function matchesOf(team) {
   const byMatch = new Map();
-  for (const record of ui.state.matches.filter((m) => m.team === team)) {
+  for (const record of ui.state.matches.filter((m) => m.team === team && inChosenEvent(m, ui.state.matches))) {
     const key = `${eventKey(record.event)}|${record.match}`;
     byMatch.set(key, [...(byMatch.get(key) ?? []), record]);
   }
@@ -58,40 +59,60 @@ const averageText = ({ auto, teleop, fouls }) =>
 
 // Every team with match or pit scouting. Best average first, so the strongest teams are at the top when picking
 // alliance partners.
+// What's typed in the search, kept while the list is redrawn for teammates' changes.
+let teamQuery = '';
+
 export function renderTeamList() {
-  const numbers = new Set([...ui.state.matches, ...ui.state.pits].map((item) => item.team));
-  const teams = [...numbers].map((team) => {
+  ui.page.innerHTML = `
+    ${eventPickerHtml()}
+    <form id="find-team" class="toolbar">
+      <input id="team-search" name="team" type="search" data-numpad="Team number" maxlength="6" placeholder="Search teams…" aria-label="Search teams" value="${esc(teamQuery)}" />
+      <button type="button" id="new-pit" class="fab">+ Pit scout</button>
+    </form>
+    <div id="team-list"></div>`;
+  wireEventPicker(ui.page, showTeamList);
+  wireNumpads(ui.page);
+  ui.page.querySelector('#team-search').oninput = (e) => {
+    teamQuery = e.target.value.trim();
+    showTeamList();
+  };
+  // Enter opens the team typed, even one nobody has scouted yet.
+  ui.page.querySelector('#find-team').onsubmit = (e) => {
+    e.preventDefault();
+    if (/^[1-9][0-9]{0,5}$/.test(teamQuery)) renderTeam(Number(teamQuery));
+  };
+  ui.page.querySelector('#new-pit').onclick = () => openPitForm(null, renderTeamList);
+  ui.page.querySelector('#team-list').onclick = (e) => {
+    const card = e.target.closest('[data-team]');
+    if (card) renderTeam(Number(card.dataset.team));
+  };
+  showTeamList();
+}
+
+// Redraws the list, also for teammates' changes (main.js), leaving the search as it is.
+export function showTeamList() {
+  fillEventPicker(ui.page, ui.state.matches);
+  const numbers = new Set([...ui.state.matches.filter((m) => inChosenEvent(m, ui.state.matches)), ...ui.state.pits].map((item) => item.team));
+  const teams = [...numbers].filter((team) => String(team).includes(teamQuery)).map((team) => {
     const matches = matchesOf(team);
     const avg = matches.length ? averages(matches) : null;
     return { team, matches: matches.length, avg, total: avg ? avg.auto + avg.teleop : -1, pit: pitOf(team) };
   }).sort((a, b) => b.total - a.total);
-  ui.page.innerHTML = `
-    <div class="row"><h1>Teams</h1>
-      <form id="find-team" class="row">
-        <input name="team" required data-numpad="Team number" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" aria-label="Team number" />
-        <button>Open</button>
-      </form>
-    </div>
-    ${teams.length ? `
-      <ul class="route-list">${teams.map((t) => `
-        <li><button class="route-card" data-team="${t.team}">
-          <span class="chip">${t.team}</span>
-          <span><strong>${t.avg ? esc(averageText(t.avg)) : 'No matches scouted'}</strong><span class="muted small">${[
-            t.matches && `${t.matches} ${t.matches === 1 ? 'match' : 'matches'} scouted`,
-            t.pit && `claims ${claimedPoints(t.pit)} points in the pits`,
-          ].filter(Boolean).join(' · ')}</span></span>
-        </button></li>`).join('')}
-      </ul>`
-    : '<div class="card empty"><p class="muted">Teams you scout show up here.</p></div>'}`;
-  wireNumpads(ui.page);
-  ui.page.querySelector('#find-team').onsubmit = (e) => {
-    e.preventDefault();
-    renderTeam(Number(e.target.team.value));
-  };
-  ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
-    const card = e.target.closest('[data-team]');
-    if (card) renderTeam(Number(card.dataset.team));
-  });
+  const typed = /^[1-9][0-9]{0,5}$/.test(teamQuery) && !numbers.has(Number(teamQuery));
+  ui.page.querySelector('#team-list').innerHTML = `${teams.length ? `
+    <ul class="route-list">${teams.map((t) => `
+      <li><button class="route-card" data-team="${t.team}">
+        <span class="chip">${t.team}</span>
+        <span><strong>${t.avg ? esc(averageText(t.avg)) : 'No matches scouted'}</strong><span class="muted small">${[
+          t.matches && `${t.matches} ${t.matches === 1 ? 'match' : 'matches'} scouted`,
+          t.pit && `claims ${claimedPoints(t.pit)} points in the pits`,
+        ].filter(Boolean).join(' · ')}</span></span>
+      </button></li>`).join('')}
+    </ul>` : ''}
+    ${typed ? `<ul class="route-list"><li><button class="route-card" data-team="${teamQuery}">
+      <span class="chip">${teamQuery}</span><span><strong>Open team ${teamQuery}</strong><span class="muted small">Not scouted yet</span></span>
+    </button></li></ul>` : ''}
+    ${!teams.length && !typed ? '<div class="card empty"><p class="muted">Teams you scout show up here.</p></div>' : ''}`;
 }
 
 // ---------- team page ----------
@@ -107,6 +128,7 @@ export function renderTeam(team) {
     <div class="row"><h1>Team ${team}</h1>
       <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="back" class="secondary">Back</button></div>
     </div>
+    ${eventPickerHtml()}
     ${pit ? comparison(pit, matches) : ''}
     ${matches.length ? `
       ${rankingHelp(matches)}
@@ -134,6 +156,8 @@ export function renderTeam(team) {
             <span class="chip ${esc(r.alliance)}">${PERIODS[r.phase]}</span><span><strong>${esc(r.name)}</strong></span>
           </button></li>`).join('')}</ul>
       </section>` : ''}`;
+  wireEventPicker(ui.page, () => renderTeam(team));
+  fillEventPicker(ui.page, ui.state.matches);
   showTeamInfo(team);
   ui.page.querySelector('#back').onclick = renderTeamList;
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(team, () => renderTeam(team));

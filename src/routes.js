@@ -6,7 +6,7 @@ import {
   DEFAULT_ROBOT, MAX_STEPS, ACTION_SECONDS, timeline, poseAt, routePoints, startProblem, hiveCrossing, collisions, encodeRoute,
 } from './route.js';
 import { scanCode } from './scanner.js';
-import { esc, confirmDialog } from './ui.js';
+import { esc, confirmDialog, ICON_PLAY } from './ui.js';
 import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
@@ -31,37 +31,49 @@ function summary(route) {
 
 // ---------- list ----------
 
+// What's typed in the search, kept while the list is redrawn for teammates' changes.
+let routeQuery = '';
+
 export function renderRouteList() {
-  const routes = [...ui.state.routes].sort((a, b) => a.name.localeCompare(b.name));
   ui.page.innerHTML = `
-    <div class="row"><h1>Routes</h1>
-      <div class="row">
-        <button id="scan-route" class="secondary">Scan</button>
-        <button id="new-route">New route</button>
-      </div>
+    <div class="toolbar">
+      <input id="route-search" type="search" placeholder="Search routes…" aria-label="Search routes" value="${esc(routeQuery)}" />
+      <button id="play-routes" class="secondary with-icon">${ICON_PLAY}<span>Play</span></button>
+      <button id="new-route" class="fab">+ New route</button>
     </div>
-    ${routes.length ? `
-      <ul class="route-list">${routes.map((r) => `
-        <li><button class="route-card" data-id="${esc(r.id)}">
-          <span class="chip ${esc(r.alliance)}">${esc(r.team || ALLIANCES[r.alliance])}</span>
-          <span><strong>${esc(r.name)}</strong><span class="muted small">${esc(summary(r))}${r.shared ? ' · Shared with you' : ''}</span></span>
-        </button></li>`).join('')}
-      </ul>
-      <button id="play-routes" class="secondary">Play routes together</button>`
-    : '<div class="card empty"><p class="muted">No routes yet.</p></div>'}`;
+    <div id="route-list"></div>`;
   ui.page.querySelector('#new-route').onclick = () => openEditor(newRoute());
-  ui.page.querySelector('#scan-route').onclick = scanRoute;
-  ui.page.querySelector('#play-routes')?.addEventListener('click', () => openPlayer([]));
-  ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
+  ui.page.querySelector('#play-routes').onclick = () => openPlayer([]);
+  ui.page.querySelector('#route-search').oninput = (e) => {
+    routeQuery = e.target.value.trim().toLowerCase();
+    showRouteList();
+  };
+  ui.page.querySelector('#route-list').onclick = (e) => {
     const card = e.target.closest('[data-id]');
     if (card) openEditor(structuredClone(ui.state.routes.find((r) => r.id === card.dataset.id)));
-  });
+  };
+  showRouteList();
+}
+
+// Redraws the list, also for teammates' changes (main.js), leaving the search as it is: the routes whose name or team
+// number has the search in it, by name.
+export function showRouteList() {
+  const routes = ui.state.routes.filter((r) => `${r.name} ${r.team ?? ''}`.toLowerCase().includes(routeQuery))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  ui.page.querySelector('#route-list').innerHTML = routes.length ? `
+    <ul class="route-list">${routes.map((r) => `
+      <li><button class="route-card" data-id="${esc(r.id)}">
+        <span class="chip ${esc(r.alliance)}">${esc(r.team || ALLIANCES[r.alliance])}</span>
+        <span><strong>${esc(r.name)}</strong><span class="muted small">${esc(summary(r))}${r.shared ? ' · Shared with you' : ''}</span></span>
+      </button></li>`).join('')}
+    </ul>`
+    : `<div class="card empty"><p class="muted">${routeQuery ? 'No routes found.' : 'No routes yet.'}</p></div>`;
 }
 
 // Opens one of the team's saved routes in the editor.
 export const openRoute = (id) => openEditor(structuredClone(ui.state.routes.find((r) => r.id === id)));
 
-function scanRoute() {
+export function scanRoute() {
   scanCode(ui.dialog, 'Scan a route', 'Point the camera at another team’s route QR code.').then((text) => {
     if (!text) return;
     const data = new URLSearchParams(text.split('#')[1]).get('route');

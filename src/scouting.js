@@ -1,7 +1,8 @@
 // The Scout tab: the matches the team has scouted, and the tap counters for scouting 1 to 4 teams in a match.
 // Each team's result is its own doc, so scouts watching the same match never overwrite each other.
 import season from './seasons/2027.js';
-import { esc, confirmDialog } from './ui.js';
+import { esc, confirmDialog, ICON_CLIPBOARD } from './ui.js';
+import { eventKey, eventPickerHtml, wireEventPicker, fillEventPicker, inChosenEvent } from './events.js';
 import { openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
 import { teamInfo } from './ftcscout.js';
@@ -56,8 +57,6 @@ function loadDraft() {
   return draft?.project === ui.state.connection.config.projectId ? draft : null;
 }
 
-// Event names are typed, so they match whatever their case and spacing.
-export const eventKey = (event) => event.trim().toLowerCase().replace(/\s+/g, ' ');
 
 // ---------- match clock ----------
 
@@ -83,10 +82,12 @@ const timeText = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(s
 // The interval that runs the clock of the open counter; one at a time.
 let clockTimer = null;
 
-// The team's records grouped by match, newest match first: [{ event, match, records }].
-function matchGroups() {
+// The chosen event's records grouped by match, newest match first: [{ event, match, records }]. A search keeps the
+// records of teams whose number has it in it, or of the match with that number.
+function matchGroups(query) {
   const groups = new Map();
-  for (const record of ui.state.matches) {
+  const found = (record) => !query || String(record.team).includes(query) || String(record.match) === query;
+  for (const record of ui.state.matches.filter((m) => inChosenEvent(m, ui.state.matches) && found(m))) {
     const key = `${eventKey(record.event)}|${record.match}`;
     if (!groups.has(key)) groups.set(key, { event: record.event, match: record.match, records: [] });
     groups.get(key).records.push(record);
@@ -95,32 +96,50 @@ function matchGroups() {
 }
 
 // Opening the tab goes straight back to a match still being scouted.
+// What's typed in the search, kept while the list is redrawn for teammates' changes.
+let scoutQuery = '';
+
 export function renderScoutList() {
   const draft = loadDraft();
   if (draft) return openCounter(draft.match, draft.sheets, draft.period);
-  const groups = matchGroups();
   ui.page.innerHTML = `
-    <div class="row"><h1>Scout</h1>
-      <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="new-match">Match scout</button></div>
+    ${eventPickerHtml()}
+    <div class="toolbar">
+      <input id="match-search" type="search" data-numpad="Team or match number" maxlength="6" placeholder="Team or match…" aria-label="Search teams or matches" value="${esc(scoutQuery)}" />
+      <button id="pit-scout" class="secondary with-icon">${ICON_CLIPBOARD}<span>Pit scout</span></button>
+      <button id="new-match" class="fab">+ Match scout</button>
     </div>
-    <p class="muted">${esc(season.name)}</p>
-    ${groups.length ? `<div id="match-list" class="page">${groups.map((g) => `
-      <section class="match-group">
-        <h2>Match ${g.match}${g.event ? ` <span class="muted small">${esc(g.event)}</span>` : ''}</h2>
-        <ul class="route-list">${g.records.sort((a, b) => a.team - b.team).map((m) => `
-          <li><button class="route-card" data-id="${esc(m.id)}">
-            <span class="chip ${esc(m.alliance)}">${m.team}</span>
-            <span><strong>${esc(pointsText(m.points))}</strong><span class="muted small">by ${esc(scoutName(m))}</span></span>
-          </button></li>`).join('')}
-        </ul>
-      </section>`).join('')}</div>`
-    : '<div class="card empty"><p class="muted">No matches scouted yet.</p></div>'}`;
+    <div id="match-list"></div>`;
+  wireEventPicker(ui.page, showMatchList);
+  wireNumpads(ui.page);
   ui.page.querySelector('#new-match').onclick = () => openSetup();
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(null, renderScoutList);
-  ui.page.querySelector('#match-list')?.addEventListener('click', (e) => {
+  ui.page.querySelector('#match-search').oninput = (e) => {
+    scoutQuery = e.target.value.trim();
+    showMatchList();
+  };
+  ui.page.querySelector('#match-list').onclick = (e) => {
     const card = e.target.closest('[data-id]');
     if (card) openMatchDialog([ui.state.matches.find((m) => m.id === card.dataset.id)]);
-  });
+  };
+  showMatchList();
+}
+
+// Redraws the list, also for teammates' changes (main.js), leaving the search as it is.
+export function showMatchList() {
+  fillEventPicker(ui.page, ui.state.matches);
+  const groups = matchGroups(scoutQuery);
+  ui.page.querySelector('#match-list').innerHTML = groups.length ? groups.map((g) => `
+    <section class="match-group">
+      <h2>Match ${g.match}${g.event ? ` <span class="muted small">${esc(g.event)}</span>` : ''}</h2>
+      <ul class="route-list">${g.records.sort((a, b) => a.team - b.team).map((m) => `
+        <li><button class="route-card" data-id="${esc(m.id)}">
+          <span class="chip ${esc(m.alliance)}">${m.team}</span>
+          <span><strong>${esc(pointsText(m.points))}</strong><span class="muted small">by ${esc(scoutName(m))}</span></span>
+        </button></li>`).join('')}
+      </ul>
+    </section>`).join('')
+    : `<div class="card empty"><p class="muted">${scoutQuery ? 'No matches found.' : 'No matches scouted yet.'}</p></div>`;
 }
 
 export const isOnce = (id) => Boolean(season.actions.find((a) => a.id === id)?.once);
