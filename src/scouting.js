@@ -4,6 +4,7 @@ import season from './seasons/2027.js';
 import { esc, confirmDialog } from './ui.js';
 import { openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
+import { teamInfo } from './ftcscout.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 'Blue 2']];
@@ -17,6 +18,11 @@ const BUTTON_PERIODS = { both: 'Auto and teleop', auto: 'Auto only', teleop: 'Te
 // Set by the app (main.js): where pages and dialogs go, the backend, the team's data and how to show errors.
 let ui;
 export const startScouting = (context) => { ui = context; };
+
+// Shows a team's name from FTCScout in `el` when FTCScout knows it. Scouting never waits for or depends on it.
+const showTeamName = (el, number) => teamInfo(number).then((info) => {
+  if (el.isConnected && info.team) el.textContent = info.team.name;
+}, () => {});
 
 // ---------- points ----------
 // Counts are { auto: { id: taps }, teleop: { id: taps } }, where id is a season action, a foul, or a custom button's id.
@@ -151,7 +157,8 @@ function openSetup(after = null, notice = '') {
         `<button type="button" class="${id}" data-side="${id}">${label}</button>`).join('')}</div>
       <div class="row pair">${SLOTS.map(([alliance, label], i) => `
         <label data-alliance="${alliance}"><span class="chip ${alliance}">${label}</span>
-          <input name="team${i}" data-numpad="${label}" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" /></label>`).join('')}
+          <input name="team${i}" data-numpad="${label}" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" />
+          <span class="muted small team-name" data-name="${i}"></span></label>`).join('')}
       </div>
       <div class="row">
         <button>Start</button>
@@ -170,6 +177,13 @@ function openSetup(after = null, notice = '') {
     if (button) showSide(button.dataset.side);
   };
   ui.page.querySelector('#cancel').onclick = renderScoutList;
+  ui.page.querySelector('#setup').oninput = (e) => {
+    const slot = e.target.name.match(/^team(\d)$/)?.[1];
+    if (slot == null) return;
+    const name = ui.page.querySelector(`[data-name="${slot}"]`);
+    name.textContent = '';
+    if (e.target.value) showTeamName(name, Number(e.target.value));
+  };
   ui.page.querySelector('#setup').onsubmit = (e) => {
     e.preventDefault();
     const form = e.target;
@@ -239,6 +253,7 @@ function openCounter(match, sheets, period = 'auto') {
         <section class="card" data-sheet="${i}">
           <div class="row"><span class="chip ${sheet.alliance}">${sheet.team}</span>
             <strong>${scored(sheet.counts)} pts</strong></div>
+          <p class="muted small team-name" data-team-name="${sheet.team}"></p>
           ${buttons.map((b, at) => {
             if (!b.group) return tally(b, sheet);
             // A group is drawn once, where its first button would be.
@@ -259,6 +274,7 @@ function openCounter(match, sheets, period = 'auto') {
         <button id="custom-button" class="secondary">Custom buttons</button>
         <button id="cancel" class="secondary">Cancel</button>
       </div>`;
+    for (const name of ui.page.querySelectorAll('[data-team-name]')) showTeamName(name, Number(name.dataset.teamName));
     ui.page.querySelector('.counter-bar .segmented').onclick = (e) => {
       const button = e.target.closest('[data-period]');
       if (button) { period = button.dataset.period; render(); }

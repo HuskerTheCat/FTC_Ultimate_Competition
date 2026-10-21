@@ -366,6 +366,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .segmented button.red[aria-pressed="true"] { color: var(--red); }
 .segmented button.blue[aria-pressed="true"] { color: var(--blue); }
 input[type="range"] { min-height: 0; padding: 0; border: none; background: none; accent-color: var(--accent); }
+.row.pair { align-items: start; }
 .row.pair > label { flex: 1 1 140px; }
 .player-controls { display: flex; align-items: center; gap: 12px; }
 .player-controls input { flex: 1; }
@@ -442,3 +443,9 @@ dialog h3 { margin: 8px 0 0; font-size: 1rem; }
 .match-group > h2 { margin: 0; font-size: 1rem; }
 .tally-row > .tally { padding: 8px 10px; }
 .minus { width: 34px; }
+/* A team's name from FTCScout, shown when it's known. */
+label:has(.team-name) { min-width: 0; }
+.team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-name:empty { display: none; }
+/* Counter columns keep the name's line even when empty, so their buttons stay side by side. */
+.counter .team-name:empty { display: block; min-height: 1lh; }
