@@ -10,7 +10,7 @@ service cloud.firestore {
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
     function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 4; }
+    function scoutRulesVersion() { return 5; }
 
     function signedIn() {
       return request.auth != null;
@@ -270,7 +270,7 @@ service cloud.firestore {
     // One team's result in one match from the Scout tab. Scouts add their own; any member can delete one entered by mistake.
     function validMatch() {
       let record = request.resource.data;
-      return record.keys().hasOnly(['season', 'event', 'match', 'team', 'alliance', 'counts', 'points', 'notes', 'scout', 'savedAt'])
+      return record.keys().hasOnly(['season', 'event', 'match', 'team', 'alliance', 'counts', 'points', 'notes', 'events', 'scout', 'savedAt'])
         && record.season is string && record.season.size() <= 20
         && record.event is string && record.event.size() <= 100
         && record.match is int && record.match > 0
@@ -279,6 +279,7 @@ service cloud.firestore {
         && record.counts is map
         && record.points is map
         && record.notes is string && record.notes.size() <= 2000
+        && (!('events' in record) || (record.events is list && record.events.size() <= 1000))
         && record.scout == request.auth.uid
         && record.savedAt == request.time;
     }

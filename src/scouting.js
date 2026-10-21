@@ -59,6 +59,30 @@ function loadDraft() {
 // Event names are typed, so they match whatever their case and spacing.
 export const eventKey = (event) => event.trim().toLowerCase().replace(/\s+/g, ' ');
 
+// ---------- match clock ----------
+
+const PHASES = { auto: 'Auto', transition: 'Transition', teleop: 'Teleop', over: 'Match over' };
+
+// Where a match started at `startedAt` (ms) is at `now`: the phase, the seconds left in it, and the seconds since the
+// start. Auto, then the transition, then teleop, with the season's lengths.
+function matchClock(startedAt, now) {
+  const elapsed = (now - startedAt) / 1000;
+  let end = 0;
+  for (const phase of ['auto', 'transition', 'teleop']) {
+    end += season.periods[phase];
+    if (elapsed < end) return { phase, left: end - elapsed, elapsed };
+  }
+  return { phase: 'over', left: 0, elapsed };
+}
+
+// Seconds as m:ss, rounded up for a countdown.
+const clockText = (seconds) => `${Math.floor(Math.ceil(seconds) / 60)}:${String(Math.ceil(seconds) % 60).padStart(2, '0')}`;
+// Seconds since the start as m:ss, for event times.
+const timeText = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+// The interval that runs the clock of the open counter; one at a time.
+let clockTimer = null;
+
 // The team's records grouped by match, newest match first: [{ event, match, records }].
 function matchGroups() {
   const groups = new Map();
@@ -120,6 +144,9 @@ export function openMatchDialog(records) {
             <p class="muted small">${esc(pointsText(record.points))} · by ${esc(scoutName(record))}</p>
             ${rows.length ? `<ul class="tally-list">${rows.join('')}</ul>` : '<p class="muted">Nothing tapped.</p>'}
             ${record.notes ? `<p>${esc(record.notes)}</p>` : ''}
+            ${record.events?.some((event) => event.t != null) ? `<details class="group"><summary><span>Timeline</span></summary>
+              <ul class="tally-list">${record.events.filter((event) => event.t != null).map((event) => `
+                <li><span>${timeText(event.t)} · ${PERIODS[event.period]} · ${esc(labelOf(event.id, ui.state.buttons))}</span></li>`).join('')}</ul></details>` : ''}
             <button type="button" class="danger" data-delete="${esc(record.id)}">Delete</button>
           </section>`;
       }).join('')}
@@ -219,8 +246,10 @@ function removeTap(sheet, p, id) {
 // One column per team with a big button for everything that scores in the current period, the fouls, the cards and
 // the team's custom buttons; things done once a period (leave, park) are checkboxes. Each counter has a minus, and Undo
 // takes back the team's last tap in the period shown. Nothing is saved until Save.
-// `sheets` are the teams' columns: their counts, taps (for Undo), notes and open (the groups shown unfolded).
+// `sheets` are the teams' columns: their counts, taps (in order, with seconds since Start match; for Undo and saved as
+// the record's events), notes and open (the groups shown unfolded). `match.startedAt` is set by Start match.
 function openCounter(match, sheets, period = 'auto') {
+  clearInterval(clockTimer);
   const saveDraft = () => localStorage.setItem(DRAFT_KEY, JSON.stringify({ project: ui.state.connection.config.projectId, match, sheets, period }));
   const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
   scrollTo(0, 0);
@@ -250,6 +279,31 @@ function openCounter(match, sheets, period = 'auto') {
       <button type="button" class="minus secondary" data-minus="${esc(b.id)}" aria-label="One less ${esc(b.label)}" ${sheet.counts[period][b.id] ? '' : 'disabled'}>−</button>
     </div>`);
 
+  // The phase and its countdown in the bar.
+  function showClock() {
+    const el = ui.page.querySelector('p.match-clock');
+    if (!el) return;
+    const { phase, left } = matchClock(match.startedAt, Date.now());
+    el.dataset.phase = phase;
+    el.innerHTML = phase === 'over' ? `<strong>${PHASES.over}</strong>` : `<strong>${PHASES[phase]}</strong><span>${clockText(left)}</span>`;
+  }
+
+  // Ticks the clock, and moves the counters to Teleop when teleop starts. Stops when the counter is closed.
+  function runClock() {
+    let phase = matchClock(match.startedAt, Date.now()).phase;
+    clockTimer = setInterval(() => {
+      if (!ui.page.querySelector('p.match-clock')) return clearInterval(clockTimer);
+      const now = matchClock(match.startedAt, Date.now()).phase;
+      if (now === 'teleop' && phase !== 'teleop') {
+        period = 'teleop';
+        render();
+      }
+      phase = now;
+      showClock();
+      if (phase === 'over') clearInterval(clockTimer);
+    }, 250);
+  }
+
   function render() {
     saveDraft();
     const buttons = buttonsFor();
@@ -259,6 +313,7 @@ function openCounter(match, sheets, period = 'auto') {
         <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
           `<button type="button" data-period="${id}" aria-pressed="${id === period}">${label}</button>`).join('')}</div>
         <button id="save-match">Save</button>
+        ${match.startedAt ? '<p class="match-clock" role="timer"></p>' : '<button id="start-match" class="match-clock">Start match</button>'}
       </div>
       <div class="counter">${sheets.map((sheet, i) => `
         <section class="card" data-sheet="${i}">
@@ -285,6 +340,13 @@ function openCounter(match, sheets, period = 'auto') {
         <button id="custom-button" class="secondary">Custom buttons</button>
         <button id="cancel" class="secondary">Cancel</button>
       </div>`;
+    showClock();
+    ui.page.querySelector('#start-match')?.addEventListener('click', () => {
+      match.startedAt = Date.now();
+      period = 'auto';
+      render();
+      runClock();
+    });
     // Each column's team stays in view under the bar while scrolling.
     ui.page.style.setProperty('--bar', `${ui.page.querySelector('.counter-bar').offsetHeight}px`);
     for (const name of ui.page.querySelectorAll('[data-team-name]')) showTeamName(name, Number(name.dataset.teamName));
@@ -299,15 +361,15 @@ function openCounter(match, sheets, period = 'auto') {
       if (minus) {
         removeTap(sheet, period, minus.dataset.minus);
         render();
-      } else if (tally?.dataset.once != null) {
-        const { id } = tally.dataset;
-        if (sheet.counts[period][id]) delete sheet.counts[period][id];
-        else sheet.counts[period][id] = 1;
+      } else if (tally?.dataset.once != null && sheet.counts[period][tally.dataset.id]) {
+        removeTap(sheet, period, tally.dataset.id);
         render();
       } else if (tally) {
         const { id } = tally.dataset;
         sheet.counts[period][id] = (sheet.counts[period][id] ?? 0) + 1;
-        sheet.taps.push({ period, id });
+        // Seconds since Start match, or null when the clock isn't used.
+        const t = match.startedAt ? Math.round((Date.now() - match.startedAt) / 100) / 10 : null;
+        sheet.taps.push({ period, id, t });
         render();
       } else if (e.target.closest('.undo')) {
         removeTap(sheet, period, sheet.taps.findLast((tap) => tap.period === period).id);
@@ -370,6 +432,7 @@ function openCounter(match, sheets, period = 'auto') {
       ui.fb.saveMatch({
         season: season.id, event: match.event, match: match.match, team: sheet.team, alliance: sheet.alliance,
         counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
+        events: sheet.taps,
       }, ui.showError);
     }
     clearDraft();
@@ -377,6 +440,7 @@ function openCounter(match, sheets, period = 'auto') {
     openSetup(match, `Saved match ${match.match} (${saving.map((sheet) => sheet.team).join(', ')}).`);
   }
   render();
+  if (match.startedAt) runClock();
 }
 
 // The team's custom buttons, for things the season's buttons don't cover: add one, or delete one nobody needs. Points

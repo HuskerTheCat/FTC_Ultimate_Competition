@@ -468,3 +468,9 @@ label:has(.team-name) { min-width: 0; }
 /* A column's team chip and points stay in view under the bar; it covers the column's padding so taps scroll under it. */
 .sheet-head { position: sticky; top: var(--bar); z-index: 4; margin: -12px -12px 0; padding: 12px 12px 6px; background: var(--surface); border-radius: 16px 16px 0 0; }
 @container (max-width: 400px) { .sheet-head { margin: -8px -8px 0; padding: 8px 8px 4px; } }
+/* The match clock: Start match, then the phase and its countdown, across the bottom of the counter bar. */
+.counter-bar > .match-clock { flex-basis: 100%; margin: 0; }
+p.match-clock { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-radius: 10px; font-size: 1.1rem; font-variant-numeric: tabular-nums; background: var(--raised); }
+p.match-clock[data-phase="auto"] { background: var(--accent); color: #111; }
+p.match-clock[data-phase="transition"] { background: #e8b500; color: #111; }
+p.match-clock[data-phase="teleop"] { background: #3d7bff; color: #fff; }
