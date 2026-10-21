@@ -10,6 +10,8 @@ const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 
 // Which alliance this device's scout watches. Usually two scouts split a match, one per alliance; saved on this device.
 const SIDES = { both: 'Both', red: 'Red', blue: 'Blue' };
 const SIDE_KEY = 'ftc-scout-side';
+// The match being scouted, kept on this device until it's saved or discarded, so a reload or a locked phone loses nothing.
+const DRAFT_KEY = 'ftc-scout-draft';
 
 // Set by the app (main.js): where pages and dialogs go, the backend, the team's data and how to show errors.
 let ui;
@@ -41,7 +43,16 @@ export const pointsText = ({ auto, teleop, fouls }) =>
 
 // ---------- list ----------
 
+// An unsaved match on this device for this team.
+function loadDraft() {
+  const draft = JSON.parse(localStorage.getItem(DRAFT_KEY));
+  return draft?.project === ui.state.connection.config.projectId ? draft : null;
+}
+
+// Opening the tab goes straight back to a match still being scouted.
 export function renderScoutList() {
+  const draft = loadDraft();
+  if (draft) return openCounter(draft.match, draft.sheets, draft.period);
   const matches = [...ui.state.matches].sort((a, b) => b.match - a.match || a.team - b.team);
   ui.page.innerHTML = `
     <div class="row"><h1>Scout</h1>
@@ -137,7 +148,8 @@ function openSetup() {
     const form = e.target;
     const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t, i) => t.team && !form.querySelectorAll('[data-alliance]')[i].hidden);
     if (!teams.length) return ui.showError(new Error('Type at least one team number.'));
-    openCounter({ event: form.event.value.trim(), match: Number(form.match.value) }, teams);
+    openCounter({ event: form.event.value.trim(), match: Number(form.match.value) },
+      teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: [] })));
   };
 }
 
@@ -146,10 +158,13 @@ function openSetup() {
 // One column per team with a big button for everything that scores in the current period, the fouls, and the team's
 // custom buttons; things done once a period (leave, park) are checkboxes. Undo takes back that team's last counter tap.
 // Nothing is saved until Save.
-function openCounter(match, teams) {
-  let period = 'auto';
-  // open: the groups (season.actions' group) this team's column shows unfolded.
-  const sheets = teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: new Set() }));
+// `sheets` are the teams' columns: their counts, taps (for Undo), notes and open (the groups shown unfolded).
+function openCounter(match, sheets, period = 'auto') {
+  const saveDraft = () => localStorage.setItem(DRAFT_KEY, JSON.stringify({ project: ui.state.connection.config.projectId, match, sheets, period }));
+  const close = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    renderScoutList();
+  };
 
   const buttonsFor = () => [
     ...season.actions.filter((a) => a.points[period] != null)
@@ -173,6 +188,7 @@ function openCounter(match, teams) {
     </button>`);
 
   function render() {
+    saveDraft();
     const buttons = buttonsFor();
     ui.page.innerHTML = `
       <div class="row"><h1>Match ${match.match}</h1>
@@ -190,7 +206,7 @@ function openCounter(match, teams) {
             const members = buttons.filter((other) => other.group === b.group);
             const taps = members.reduce((sum, m) => sum + (sheet.counts[period][m.id] ?? 0), 0);
             return `
-              <details class="group" data-group="${esc(b.group)}" ${sheet.open.has(b.group) ? 'open' : ''}>
+              <details class="group" data-group="${esc(b.group)}" ${sheet.open.includes(b.group) ? 'open' : ''}>
                 <summary><span>${esc(b.group)}</span><strong>${taps}</strong></summary>
                 ${members.map((m) => tally(m, sheet)).join('')}
               </details>`;
@@ -229,15 +245,21 @@ function openCounter(match, teams) {
     };
     // Folding a group is remembered for that team while the match is scouted. Toggle events don't bubble, hence capture.
     ui.page.querySelector('.counter').addEventListener('toggle', (e) => {
-      const { open } = sheets[e.target.closest('[data-sheet]').dataset.sheet];
-      if (e.target.open) open.add(e.target.dataset.group);
-      else open.delete(e.target.dataset.group);
+      const sheet = sheets[e.target.closest('[data-sheet]').dataset.sheet];
+      sheet.open = sheet.open.filter((group) => group !== e.target.dataset.group);
+      if (e.target.open) sheet.open.push(e.target.dataset.group);
+      saveDraft();
     }, true);
     ui.page.querySelector('.counter').oninput = (e) => {
       sheets[e.target.closest('[data-sheet]').dataset.sheet].notes = e.target.value;
+      saveDraft();
     };
     ui.page.querySelector('#custom-button').onclick = () => openButtonDialog(render);
-    ui.page.querySelector('#cancel').onclick = renderScoutList;
+    ui.page.querySelector('#cancel').onclick = () => {
+      const scouted = sheets.some((sheet) => sheet.notes || Object.keys(PERIODS).some((p) => Object.keys(sheet.counts[p]).length));
+      if (scouted) confirmDiscard(match, close);
+      else close();
+    };
     ui.page.querySelector('#save-match').onclick = () => {
       for (const sheet of sheets) {
         ui.fb.saveMatch({
@@ -245,10 +267,27 @@ function openCounter(match, teams) {
           counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
         }, ui.showError);
       }
-      renderScoutList();
+      close();
     };
   }
   render();
+}
+
+function confirmDiscard(match, discard) {
+  ui.dialog.innerHTML = `
+    <form method="dialog" class="card">
+      <h2>Discard match ${match.match}?</h2>
+      <p class="muted">What you tapped for this match won’t be saved.</p>
+      <div class="row">
+        <button class="secondary">Keep scouting</button>
+        <button type="button" id="discard" class="danger">Discard</button>
+      </div>
+    </form>`;
+  ui.dialog.querySelector('#discard').onclick = () => {
+    ui.dialog.close();
+    discard();
+  };
+  ui.dialog.showModal();
 }
 
 // The team's custom buttons, for things the season's buttons don't cover: add one, or delete one nobody needs. Points
