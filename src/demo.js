@@ -98,7 +98,7 @@ const matches = new Map([
   ['m4', { season: '2027', event: 'Demo Qualifier', match: 4, team: 22222, alliance: 'blue', scout: 'gabby', notes: 'Pushed into our robot.',
     counts: counts({}, { garden: 8, major: 1 }), points: { auto: 0, teleop: 8, fouls: 20 } }],
 ]);
-const buttons = new Map([['defended', { label: 'Played defense', points: 0 }]]);
+const buttons = new Map([['defended', { label: 'Played defense', points: 0, period: 'teleop' }]]);
 // 67890 oversells its teleop in the pits; 33333 was only pit scouted.
 const pits = new Map([
   ['67890', { season: '2027', team: 67890, by: 'gabby', drivetrain: 'Mecanum', notes: 'Says they never miss the hive tip.',

@@ -1,6 +1,7 @@
 // The Teams tab: every team the team has scouted, and a page per team with its averages, matches, notes and routes.
 import { esc } from './ui.js';
-import { labelOf, matchPoints, pointsText, openMatchDialog } from './scouting.js';
+import { labelOf, matchPoints, pointsText, openMatchDialog, eventKey, isOnce } from './scouting.js';
+import { openRoute } from './routes.js';
 import { pitOf, openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
 import season from './seasons/2027.js';
@@ -19,7 +20,7 @@ export const startTeams = (context) => { ui = context; };
 function matchesOf(team) {
   const byMatch = new Map();
   for (const record of ui.state.matches.filter((m) => m.team === team)) {
-    const key = `${record.event}|${record.match}`;
+    const key = `${eventKey(record.event)}|${record.match}`;
     byMatch.set(key, [...(byMatch.get(key) ?? []), record]);
   }
   return [...byMatch.values()].map(combine).sort((a, b) => a.match - b.match);
@@ -99,6 +100,7 @@ export function renderTeam(team) {
   const matches = matchesOf(team);
   const routes = ui.state.routes.filter((r) => r.team === team);
   const pit = pitOf(team);
+  scrollTo(0, 0);
   ui.page.innerHTML = `
     <div class="row"><h1>Team ${team}</h1>
       <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="back" class="secondary">Back</button></div>
@@ -106,6 +108,7 @@ export function renderTeam(team) {
     <section class="card" id="ftcscout" data-team="${team}"><h2>FTCScout</h2><p class="muted">Looking up team ${team}…</p></section>
     ${pit ? comparison(pit, matches) : ''}
     ${matches.length ? `
+      ${rankingHelp(matches)}
       <section class="card">
         <h2>Averages</h2>
         <p>${esc(averageText(averages(matches)))}</p>
@@ -124,15 +127,25 @@ export function renderTeam(team) {
     ${routes.length ? `
       <section class="card">
         <h2>Routes</h2>
-        <ul class="tally-list">${routes.map((r) => `<li><span>${esc(r.name)}</span><span class="muted">${PERIODS[r.phase]}</span></li>`).join('')}</ul>
+        <ul class="route-list">${routes.map((r) => `
+          <li><button class="route-card" data-route="${esc(r.id)}">
+            <span class="chip ${esc(r.alliance)}">${PERIODS[r.phase]}</span><span><strong>${esc(r.name)}</strong></span>
+          </button></li>`).join('')}</ul>
       </section>` : ''}`;
   showTeamInfo(team);
   ui.page.querySelector('#back').onclick = renderTeamList;
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(team, () => renderTeam(team));
-  ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
-    const card = e.target.closest('[data-match]');
-    if (card) openMatchDialog(matches[card.dataset.match].records);
-  });
+  for (const list of ui.page.querySelectorAll('.route-list')) {
+    list.addEventListener('click', (e) => {
+      const match = e.target.closest('[data-match]');
+      const route = e.target.closest('[data-route]');
+      if (match) openMatchDialog(matches[match.dataset.match].records);
+      if (route) {
+        ui.showTab('routes');
+        openRoute(route.dataset.route);
+      }
+    });
+  }
 }
 
 // FTCScout's name, home and this season's OPR for the team, filled in when it answers if the page is still open.
@@ -155,13 +168,37 @@ async function showTeamInfo(team) {
   if (card) card.innerHTML = `<h2>FTCScout</h2>${html}`;
 }
 
-// How many times per match the team did each thing, by period.
+// What the team adds per match toward each ranking point, which its alliance as a whole has to reach.
+function rankingHelp(matches) {
+  const part = (rp, m) => Object.keys(PERIODS).reduce((sum, period) => sum + rp.actions.reduce((total, id) => {
+    const taps = m.counts[period][id] ?? 0;
+    return total + (rp.measure === 'points' ? taps * (season.actions.find((a) => a.id === id).points[period] ?? 0) : taps);
+  }, 0), 0);
+  return `
+    <section class="card">
+      <h2>Toward ranking points</h2>
+      <table class="compare">
+        <thead><tr><th></th><th>Per match</th><th>Alliance needs</th></tr></thead>
+        <tbody>${season.rankingPoints.map((rp) => `
+          <tr><th>${esc(rp.label)} <span class="muted small">${esc(rp.unit)}</span></th>
+            <td>${oneDecimal(average(matches, (m) => part(rp, m)))}</td><td>${rp.threshold}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </section>`;
+}
+
+// Things done once a period (leave, park) read as how often; everything else as how many per match.
+const perMatch = (id, value) => (isOnce(id) ? `${Math.round(value * 100)}%` : oneDecimal(value));
+
+// How many times per match the team did each thing, by period, in the season's order.
 function tapAverages(matches) {
+  const order = [...season.actions, ...season.fouls, ...season.cards, ...ui.state.buttons].map((b) => b.id);
+  const rank = (id) => (order.includes(id) ? order.indexOf(id) : order.length);
   return Object.keys(PERIODS).flatMap((period) => {
-    const ids = [...new Set(matches.flatMap((m) => Object.keys(m.counts[period])))];
+    const ids = [...new Set(matches.flatMap((m) => Object.keys(m.counts[period])))].sort((a, b) => rank(a) - rank(b));
     return ids.map((id) => `
       <li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span>
-        <strong>${oneDecimal(average(matches, (m) => m.counts[period][id] ?? 0))}</strong></li>`);
+        <strong>${perMatch(id, average(matches, (m) => m.counts[period][id] ?? 0))}</strong></li>`);
   }).join('');
 }
 
@@ -171,13 +208,12 @@ function comparison(pit, matches) {
   const scored = matches.length ? averages(matches) : null;
   const actual = (period, id) => (matches.length ? average(matches, (m) => m.counts[period][id] ?? 0) : null);
   // Things done once a period (leave, park) read as Yes or No in the pits and how often in matches.
-  const format = (value, once) => (once ? `${Math.round(value * 100)}%` : oneDecimal(value));
-  const cell = (claim, value, once) => `<td class="${value != null && value < claim ? 'short' : ''}">${value == null ? '–' : format(value, once)}</td>`;
+  const cell = (claim, value, id) => `<td class="${value != null && value < claim ? 'short' : ''}">${value == null ? '–' : id ? perMatch(id, value) : oneDecimal(value)}</td>`;
   const rows = Object.keys(PERIODS).flatMap((period) => season.actions
     .filter((a) => a.points[period] != null && (pit.claims[period][a.id] || actual(period, a.id)))
     .map((a) => {
       const claim = pit.claims[period][a.id] ?? 0;
-      return `<tr><th>${PERIODS[period]} · ${esc(a.label)}</th><td>${a.once ? (claim ? 'Yes' : 'No') : claim}</td>${cell(claim, actual(period, a.id), a.once)}</tr>`;
+      return `<tr><th>${PERIODS[period]} · ${esc(a.label)}</th><td>${a.once ? (claim ? 'Yes' : 'No') : claim}</td>${cell(claim, actual(period, a.id), a.id)}</tr>`;
     }));
   const claimed = claimedPoints(pit);
   return `

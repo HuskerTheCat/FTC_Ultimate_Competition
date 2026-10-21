@@ -18,6 +18,13 @@ export default {
     { id: 'flower', label: 'Pollen/nectar in flower', points: { auto: null, teleop: 2 }, endCount: true, group: 'Pollen and nectar' },
     { id: 'garden', label: 'Pollen/nectar in garden', points: { auto: null, teleop: 1 }, endCount: true, group: 'Pollen and nectar' },
   ],
+  // Tables 10-2 and 10-3: ranking points an alliance earns at or above a threshold (non-championship events). Each team's
+  // part is measured from what it does: `points` of the listed actions, or how many times (`count`) it does them.
+  rankingPoints: [
+    { id: 'swarm', label: 'Swarm RP', actions: ['leave', 'park'], measure: 'points', threshold: 16, unit: 'leave and park points' },
+    { id: 'pollinator1', label: 'Pollinator 1 RP', actions: ['hiveTip'], measure: 'count', threshold: 4, unit: 'hive tips' },
+    { id: 'pollinator2', label: 'Pollinator 2 RP', actions: ['hiveTip'], measure: 'count', threshold: 7, unit: 'hive tips' },
+  ],
   // Table 10-4. Foul points go to the opponent's score.
   fouls: [
     { id: 'minor', label: 'Minor foul', points: 5 },

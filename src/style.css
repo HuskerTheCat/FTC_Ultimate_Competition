@@ -430,3 +430,15 @@ dialog form > section > ul { align-self: stretch; }
 .tally.card-red > strong { color: var(--danger); }
 dialog .tally-list > li { align-items: center; }
 dialog h3 { margin: 8px 0 0; font-size: 1rem; }
+/* Match scout: the period switch and Save stay in reach while the columns scroll. */
+.counter-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 -16px; padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--border); }
+.counter-bar > h1 { flex: 1; margin: 0; font-size: 1.4rem; }
+.tally-row { display: flex; gap: 6px; }
+.tally-row > .tally { flex: 1; min-width: 0; }
+.minus { flex: none; width: 40px; min-height: 56px; padding: 0; font-size: 1.3rem; }
+.group .tally-row + .tally-row, .group > summary + .tally-row { margin-top: 8px; }
+.notice { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgb(255 165 61 / 0.15); color: var(--text); }
+.match-group { display: flex; flex-direction: column; gap: 8px; }
+.match-group > h2 { margin: 0; font-size: 1rem; }
+.tally-row > .tally { padding: 8px 10px; }
+.minus { width: 34px; }

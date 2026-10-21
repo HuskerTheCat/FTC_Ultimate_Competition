@@ -16,6 +16,7 @@ export const pitOf = (team) => ui.state.pits.find((p) => p.team === team);
 // The form for one team; typing a team number that was pit scouted before fills in its last answers. `back` reopens
 // the page the form was opened from.
 export function openPitForm(team, back) {
+  scrollTo(0, 0);
   ui.page.innerHTML = `
     <div class="row"><h1>Pit scout</h1></div>
     <form id="pit" class="page">
@@ -28,7 +29,7 @@ export function openPitForm(team, back) {
         <section class="card">
           <h2>${label}: how many per match?</h2>
           <ul class="tally-list">${season.actions.filter((a) => a.points[period] != null).map((a) => `
-            <li><span>${esc(a.label)}</span><input class="claim" ${a.once ? 'type="checkbox"' : 'type="number" min="0" max="99" inputmode="numeric"'} name="${period}.${a.id}" aria-label="${PERIODS[period]} ${esc(a.label)}" /></li>`).join('')}
+            <li><span>${esc(a.label)}</span><input class="claim" ${a.once ? 'type="checkbox"' : `data-numpad="${PERIODS[period]} · ${esc(a.label)}" maxlength="2" placeholder="0"`} name="${period}.${a.id}" aria-label="${PERIODS[period]} ${esc(a.label)}" /></li>`).join('')}
           </ul>
         </section>`).join('')}
       <section class="card"><textarea class="notes" name="notes" rows="3" maxlength="2000" placeholder="Notes: strategy, strengths, problems"></textarea></section>

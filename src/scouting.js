@@ -1,7 +1,7 @@
 // The Scout tab: the matches the team has scouted, and the tap counters for scouting 1 to 4 teams in a match.
 // Each team's result is its own doc, so scouts watching the same match never overwrite each other.
 import season from './seasons/2027.js';
-import { esc } from './ui.js';
+import { esc, confirmDialog } from './ui.js';
 import { openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
 
@@ -12,6 +12,7 @@ const SIDES = { both: 'Both', red: 'Red', blue: 'Blue' };
 const SIDE_KEY = 'ftc-scout-side';
 // The match being scouted, kept on this device until it's saved or discarded, so a reload or a locked phone loses nothing.
 const DRAFT_KEY = 'ftc-scout-draft';
+const BUTTON_PERIODS = { both: 'Auto and teleop', auto: 'Auto only', teleop: 'Teleop only' };
 
 // Set by the app (main.js): where pages and dialogs go, the backend, the team's data and how to show errors.
 let ui;
@@ -49,31 +50,50 @@ function loadDraft() {
   return draft?.project === ui.state.connection.config.projectId ? draft : null;
 }
 
+// Event names are typed, so they match whatever their case and spacing.
+export const eventKey = (event) => event.trim().toLowerCase().replace(/\s+/g, ' ');
+
+// The team's records grouped by match, newest match first: [{ event, match, records }].
+function matchGroups() {
+  const groups = new Map();
+  for (const record of ui.state.matches) {
+    const key = `${eventKey(record.event)}|${record.match}`;
+    if (!groups.has(key)) groups.set(key, { event: record.event, match: record.match, records: [] });
+    groups.get(key).records.push(record);
+  }
+  return [...groups.values()].sort((a, b) => b.match - a.match);
+}
+
 // Opening the tab goes straight back to a match still being scouted.
 export function renderScoutList() {
   const draft = loadDraft();
   if (draft) return openCounter(draft.match, draft.sheets, draft.period);
-  const matches = [...ui.state.matches].sort((a, b) => b.match - a.match || a.team - b.team);
+  const groups = matchGroups();
   ui.page.innerHTML = `
     <div class="row"><h1>Scout</h1>
       <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="new-match">Match scout</button></div>
     </div>
     <p class="muted">${esc(season.name)}</p>
-    ${matches.length ? `
-      <ul class="route-list">${matches.map((m) => `
-        <li><button class="route-card" data-id="${esc(m.id)}">
-          <span class="chip ${esc(m.alliance)}">${m.team}</span>
-          <span><strong>Match ${m.match}${m.event ? ` · ${esc(m.event)}` : ''}</strong><span class="muted small">${esc(pointsText(m.points))} · by ${esc(scoutName(m))}</span></span>
-        </button></li>`).join('')}
-      </ul>`
+    ${groups.length ? `<div id="match-list" class="page">${groups.map((g) => `
+      <section class="match-group">
+        <h2>Match ${g.match}${g.event ? ` <span class="muted small">${esc(g.event)}</span>` : ''}</h2>
+        <ul class="route-list">${g.records.sort((a, b) => a.team - b.team).map((m) => `
+          <li><button class="route-card" data-id="${esc(m.id)}">
+            <span class="chip ${esc(m.alliance)}">${m.team}</span>
+            <span><strong>${esc(pointsText(m.points))}</strong><span class="muted small">by ${esc(scoutName(m))}</span></span>
+          </button></li>`).join('')}
+        </ul>
+      </section>`).join('')}</div>`
     : '<div class="card empty"><p class="muted">No matches scouted yet.</p></div>'}`;
   ui.page.querySelector('#new-match').onclick = () => openSetup();
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(null, renderScoutList);
-  ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
+  ui.page.querySelector('#match-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-id]');
     if (card) openMatchDialog([ui.state.matches.find((m) => m.id === card.dataset.id)]);
   });
 }
+
+export const isOnce = (id) => Boolean(season.actions.find((a) => a.id === id)?.once);
 
 export const scoutName = (record) => {
   const member = ui.state.members.find((m) => m.uid === record.scout);
@@ -88,7 +108,7 @@ export function openMatchDialog(records) {
       <h2>${team} in match ${match}</h2>
       ${records.map((record) => {
         const rows = Object.keys(PERIODS).flatMap((period) => Object.entries(record.counts[period])
-          .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${taps}</strong></li>`));
+          .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${isOnce(id) ? 'Yes' : taps}</strong></li>`));
         return `
           <section>
             <p class="muted small">${esc(pointsText(record.points))} · by ${esc(scoutName(record))}</p>
@@ -102,22 +122,29 @@ export function openMatchDialog(records) {
   ui.dialog.querySelector('form').onclick = (e) => {
     const id = e.target.closest('[data-delete]')?.dataset.delete;
     if (!id) return;
-    ui.dialog.close();
-    ui.fb.deleteMatch(id).catch(ui.showError);
+    const record = records.find((r) => r.id === id);
+    confirmDialog(ui.dialog, {
+      title: `Delete ${scoutName(record)}’s record of ${team} in match ${match}?`, text: 'This can’t be undone.', action: 'Delete',
+    }, () => ui.fb.deleteMatch(id).catch(ui.showError));
   };
   ui.dialog.showModal();
 }
 
 // ---------- setup ----------
 
-// The event and next match number follow on from the last match scouted.
-function openSetup() {
-  const last = ui.state.matches.reduce((a, b) => (a && a.match >= b.match ? a : b), null);
+// The event and next match number follow on from `after` (the match just saved), or else from the last match scouted.
+// `notice` says what was just saved.
+function openSetup(after = null, notice = '') {
+  const last = after ?? ui.state.matches.reduce((a, b) => (a && a.match >= b.match ? a : b), null);
+  scrollTo(0, 0);
+  const events = [...new Map(ui.state.matches.filter((m) => m.event).map((m) => [eventKey(m.event), m.event])).values()];
   ui.page.innerHTML = `
     <div class="row"><h1>Match scout</h1></div>
+    ${notice ? `<p class="notice" role="status">${esc(notice)}</p>` : ''}
     <form id="setup" class="card">
       <div class="row pair">
-        <label>Event <input name="event" maxlength="100" value="${esc(last?.event ?? '')}" placeholder="Optional" /></label>
+        <label>Event <input name="event" maxlength="100" list="events" autocomplete="off" value="${esc(last?.event ?? '')}" placeholder="Optional" /></label>
+        <datalist id="events">${events.map((e) => `<option value="${esc(e)}"></option>`).join('')}</datalist>
         <label>Match <input name="match" required data-numpad="Match" maxlength="4" pattern="[1-9][0-9]{0,3}" value="${last ? last.match + 1 : 1}" /></label>
       </div>
       <div class="segmented" role="group" aria-label="Alliance to watch">${Object.entries(SIDES).map(([id, label]) =>
@@ -148,6 +175,8 @@ function openSetup() {
     const form = e.target;
     const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t, i) => t.team && !form.querySelectorAll('[data-alliance]')[i].hidden);
     if (!teams.length) return ui.showError(new Error('Type at least one team number.'));
+    const twice = teams.find((t, i) => teams.findIndex((other) => other.team === t.team) !== i);
+    if (twice) return ui.showError(new Error(`Team ${twice.team} is typed in twice.`));
     openCounter({ event: form.event.value.trim(), match: Number(form.match.value) },
       teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: [] })));
   };
@@ -155,23 +184,22 @@ function openSetup() {
 
 // ---------- counters ----------
 
-// One column per team with a big button for everything that scores in the current period, the fouls, and the team's
-// custom buttons; things done once a period (leave, park) are checkboxes. Undo takes back that team's last counter tap.
-// Nothing is saved until Save.
+// One column per team with a big button for everything that scores in the current period, the fouls, the cards and
+// the team's custom buttons; things done once a period (leave, park) are checkboxes. Each counter has a minus, and Undo
+// takes back the team's last tap in the period shown. Nothing is saved until Save.
 // `sheets` are the teams' columns: their counts, taps (for Undo), notes and open (the groups shown unfolded).
 function openCounter(match, sheets, period = 'auto') {
   const saveDraft = () => localStorage.setItem(DRAFT_KEY, JSON.stringify({ project: ui.state.connection.config.projectId, match, sheets, period }));
-  const close = () => {
-    localStorage.removeItem(DRAFT_KEY);
-    renderScoutList();
-  };
+  const clearDraft = () => localStorage.removeItem(DRAFT_KEY);
+  scrollTo(0, 0);
 
   const buttonsFor = () => [
     ...season.actions.filter((a) => a.points[period] != null)
       .map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}`, once: a.once, group: a.group })),
     ...season.fouls.map((f) => ({ id: f.id, label: f.label, points: `${f.points} to them`, foul: true })),
     ...season.cards.map((c) => ({ id: c.id, label: c.label, points: 'No points', card: c.id })),
-    ...ui.state.buttons.map((b) => ({ id: b.id, label: b.label, points: `${b.points >= 0 ? '+' : ''}${b.points}` })),
+    ...ui.state.buttons.filter((b) => b.period === 'both' || b.period === period)
+      .map((b) => ({ id: b.id, label: b.label, points: `${b.points >= 0 ? '+' : ''}${b.points}` })),
   ];
 
   const scored = (counts) => {
@@ -183,17 +211,29 @@ function openCounter(match, sheets, period = 'auto') {
     <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
       <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
     </button>` : `
-    <button type="button" class="tally${b.foul ? ' foul' : ''}${b.card ? ` card-${b.card}` : ''}" data-id="${esc(b.id)}">
-      <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
-    </button>`);
+    <div class="tally-row">
+      <button type="button" class="tally${b.foul ? ' foul' : ''}${b.card ? ` card-${b.card}` : ''}" data-id="${esc(b.id)}">
+        <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
+      </button>
+      <button type="button" class="minus secondary" data-minus="${esc(b.id)}" aria-label="One less ${esc(b.label)}" ${sheet.counts[period][b.id] ? '' : 'disabled'}>−</button>
+    </div>`);
+
+  // Takes one tap of `id` off, and the latest matching tap off the Undo list.
+  const removeTap = (sheet, p, id) => {
+    if (--sheet.counts[p][id] === 0) delete sheet.counts[p][id];
+    const at = sheet.taps.findLastIndex((tap) => tap.period === p && tap.id === id);
+    if (at >= 0) sheet.taps.splice(at, 1);
+  };
 
   function render() {
     saveDraft();
     const buttons = buttonsFor();
     ui.page.innerHTML = `
-      <div class="row"><h1>Match ${match.match}</h1>
+      <div class="counter-bar">
+        <h1>Match ${match.match}</h1>
         <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
           `<button type="button" data-period="${id}" aria-pressed="${id === period}">${label}</button>`).join('')}</div>
+        <button id="save-match">Save</button>
       </div>
       <div class="counter">${sheets.map((sheet, i) => `
         <section class="card" data-sheet="${i}">
@@ -211,23 +251,26 @@ function openCounter(match, sheets, period = 'auto') {
                 ${members.map((m) => tally(m, sheet)).join('')}
               </details>`;
           }).join('')}
-          <button type="button" class="secondary undo" ${sheet.taps.length ? '' : 'disabled'}>Undo</button>
+          <button type="button" class="secondary undo" ${sheet.taps.some((tap) => tap.period === period) ? '' : 'disabled'}>Undo</button>
           <textarea class="notes" rows="2" maxlength="2000" placeholder="Notes">${esc(sheet.notes)}</textarea>
         </section>`).join('')}
       </div>
       <div class="row actions">
-        <button id="save-match">Save</button>
         <button id="custom-button" class="secondary">Custom buttons</button>
         <button id="cancel" class="secondary">Cancel</button>
       </div>`;
-    ui.page.querySelector('.segmented').onclick = (e) => {
+    ui.page.querySelector('.counter-bar .segmented').onclick = (e) => {
       const button = e.target.closest('[data-period]');
       if (button) { period = button.dataset.period; render(); }
     };
     ui.page.querySelector('.counter').onclick = (e) => {
       const sheet = sheets[e.target.closest('[data-sheet]')?.dataset.sheet];
       const tally = e.target.closest('.tally');
-      if (tally?.dataset.once != null) {
+      const minus = e.target.closest('[data-minus]');
+      if (minus) {
+        removeTap(sheet, period, minus.dataset.minus);
+        render();
+      } else if (tally?.dataset.once != null) {
         const { id } = tally.dataset;
         if (sheet.counts[period][id]) delete sheet.counts[period][id];
         else sheet.counts[period][id] = 1;
@@ -238,8 +281,7 @@ function openCounter(match, sheets, period = 'auto') {
         sheet.taps.push({ period, id });
         render();
       } else if (e.target.closest('.undo')) {
-        const { period: p, id } = sheet.taps.pop();
-        if (--sheet.counts[p][id] === 0) delete sheet.counts[p][id];
+        removeTap(sheet, period, sheet.taps.findLast((tap) => tap.period === period).id);
         render();
       }
     };
@@ -257,8 +299,12 @@ function openCounter(match, sheets, period = 'auto') {
     ui.page.querySelector('#custom-button').onclick = () => openButtonDialog(render);
     ui.page.querySelector('#cancel').onclick = () => {
       const scouted = sheets.some((sheet) => sheet.notes || Object.keys(PERIODS).some((p) => Object.keys(sheet.counts[p]).length));
-      if (scouted) confirmDiscard(match, close);
-      else close();
+      const discard = () => {
+        clearDraft();
+        renderScoutList();
+      };
+      if (!scouted) return discard();
+      confirmDialog(ui.dialog, { title: `Discard match ${match.match}?`, text: 'What you tapped for this match won’t be saved.', action: 'Discard' }, discard);
     };
     ui.page.querySelector('#save-match').onclick = () => {
       for (const sheet of sheets) {
@@ -267,27 +313,12 @@ function openCounter(match, sheets, period = 'auto') {
           counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
         }, ui.showError);
       }
-      close();
+      clearDraft();
+      // Straight on to the next match, which is what a scout does next.
+      openSetup(match, `Saved match ${match.match} (${sheets.map((sheet) => sheet.team).join(', ')}).`);
     };
   }
   render();
-}
-
-function confirmDiscard(match, discard) {
-  ui.dialog.innerHTML = `
-    <form method="dialog" class="card">
-      <h2>Discard match ${match.match}?</h2>
-      <p class="muted">What you tapped for this match won’t be saved.</p>
-      <div class="row">
-        <button class="secondary">Keep scouting</button>
-        <button type="button" id="discard" class="danger">Discard</button>
-      </div>
-    </form>`;
-  ui.dialog.querySelector('#discard').onclick = () => {
-    ui.dialog.close();
-    discard();
-  };
-  ui.dialog.showModal();
 }
 
 // The team's custom buttons, for things the season's buttons don't cover: add one, or delete one nobody needs. Points
@@ -298,12 +329,15 @@ function openButtonDialog(onChange) {
       <form method="dialog" class="card">
         <h2>Custom buttons</h2>
         ${ui.state.buttons.length ? `<ul class="tally-list">${ui.state.buttons.map((b) => `
-          <li><span>${esc(b.label)} <span class="muted small">${b.points >= 0 ? '+' : ''}${b.points}</span></span>
+          <li><span>${esc(b.label)} <span class="muted small">${b.points >= 0 ? '+' : ''}${b.points} · ${BUTTON_PERIODS[b.period]}</span></span>
             <button type="button" class="danger" data-delete="${esc(b.id)}">Delete</button></li>`).join('')}
         </ul>` : ''}
         <h3>Add a button</h3>
         <label>Name <input name="label" maxlength="30" placeholder="e.g. Played defense" /></label>
-        <label>Points <input name="points" type="number" min="-100" max="100" step="1" value="0" /></label>
+        <div class="row pair">
+          <label>Points <input name="points" type="number" min="-100" max="100" step="1" value="0" /></label>
+          <label>When <select name="period">${Object.entries(BUTTON_PERIODS).map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}</select></label>
+        </div>
         <p class="muted small">Everyone on your team gets these buttons.</p>
         <div class="row">
           <button type="button" id="add-button">Add</button>
@@ -325,7 +359,8 @@ function openButtonDialog(onChange) {
       if (!label) return form.label.focus();
       if (!Number.isInteger(points) || Math.abs(points) > 100) return form.points.reportValidity();
       // Shown straight away; the team's list catches up when the save reaches the backend.
-      ui.state.buttons = [...ui.state.buttons, { id: ui.fb.saveButton({ label, points }, ui.showError), label, points }];
+      const button = { label, points, period: form.period.value };
+      ui.state.buttons = [...ui.state.buttons, { id: ui.fb.saveButton(button, ui.showError), ...button }];
       render();
       onChange();
     };

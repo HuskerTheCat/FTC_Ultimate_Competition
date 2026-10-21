@@ -401,6 +401,8 @@ function renderApp() {
     <main id="page" class="page"></main>
     <dialog id="dialog"></dialog>`;
 
+  // An error belongs to the screen it happened on, so a new screen clears it.
+  new MutationObserver(() => { app.querySelector('#error').hidden = true; }).observe(app.querySelector('#page'), { childList: true });
   app.querySelector('#menu-toggle').onclick = () => showMenu(app.querySelector('#menu').hidden);
   app.querySelector('#team').onclick = () => {
     showMenu(false);
@@ -418,6 +420,7 @@ function renderApp() {
     if (!button) return;
     state.tab = button.dataset.tab;
     localStorage.setItem(TAB_KEY, state.tab);
+    scrollTo(0, 0);
     renderTab();
   };
   renderTab();
@@ -619,6 +622,12 @@ addEventListener('hashchange', () => {
 // What each tab needs from the app.
 const tabContext = {
   get page() { return app.querySelector('#page'); },
+  showTab(tab) {
+    state.tab = tab;
+    localStorage.setItem(TAB_KEY, tab);
+    scrollTo(0, 0);
+    renderTab();
+  },
   get dialog() { return app.querySelector('#dialog'); },
   get fb() { return fb; },
   state,

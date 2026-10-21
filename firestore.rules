@@ -269,18 +269,18 @@ service cloud.firestore {
 
     // One team's result in one match from the Scout tab. Scouts add their own; any member can delete one entered by mistake.
     function validMatch() {
-      let match = request.resource.data;
-      return match.keys().hasOnly(['season', 'event', 'match', 'team', 'alliance', 'counts', 'points', 'notes', 'scout', 'savedAt'])
-        && match.season is string && match.season.size() <= 20
-        && match.event is string && match.event.size() <= 100
-        && match.match is int && match.match > 0
-        && match.team is int && match.team > 0
-        && match.alliance in ['red', 'blue']
-        && match.counts is map
-        && match.points is map
-        && match.notes is string && match.notes.size() <= 2000
-        && match.scout == request.auth.uid
-        && match.savedAt == request.time;
+      let record = request.resource.data;
+      return record.keys().hasOnly(['season', 'event', 'match', 'team', 'alliance', 'counts', 'points', 'notes', 'scout', 'savedAt'])
+        && record.season is string && record.season.size() <= 20
+        && record.event is string && record.event.size() <= 100
+        && record.match is int && record.match > 0
+        && record.team is int && record.team > 0
+        && record.alliance in ['red', 'blue']
+        && record.counts is map
+        && record.points is map
+        && record.notes is string && record.notes.size() <= 2000
+        && record.scout == request.auth.uid
+        && record.savedAt == request.time;
     }
     match /scoutMatches/{id} {
       allow read: if isMember();
@@ -307,7 +307,8 @@ service cloud.firestore {
     match /scoutButtons/{id} {
       allow read: if isMember();
       allow create: if isMember()
-        && request.resource.data.keys().hasOnly(['label', 'points'])
+        && request.resource.data.keys().hasOnly(['label', 'points', 'period'])
+        && request.resource.data.period in ['auto', 'teleop', 'both']
         && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 30
         && request.resource.data.points is int && request.resource.data.points >= -100 && request.resource.data.points <= 100;
       allow delete: if isMember();

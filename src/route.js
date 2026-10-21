@@ -97,6 +97,32 @@ export function startProblem(route, season) {
   return null;
 }
 
+// Whether the straight line from a to b passes through the box (Liang–Barsky clipping).
+function crossesBox(a, b, { x, y, width, height }) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  let enter = 0;
+  let leave = 1;
+  for (const [p, q] of [[-dx, a.x - x], [dx, x + width - a.x], [-dy, a.y - y], [dy, y + height - a.y]]) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else if (p < 0) enter = Math.max(enter, q / p);
+    else leave = Math.min(leave, q / p);
+  }
+  return enter <= leave;
+}
+
+// The first step whose path drives the robot's centre through a hive, as { step, alliance }, or null.
+export function hiveCrossing(route, season) {
+  let from = route.start;
+  for (const [i, step] of route.steps.entries()) {
+    const alliance = Object.keys(season.field.hives).find((side) => crossesBox(from, step, season.field.hives[side]));
+    if (alliance) return { step: i + 1, alliance };
+    from = step;
+  }
+  return null;
+}
+
 // Times when robots of the routes playing together overlap, as [{ time, a, b }] with the routes' indexes, one per
 // tenth of a second.
 export function collisions(routes) {

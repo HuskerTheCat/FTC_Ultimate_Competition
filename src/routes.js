@@ -3,10 +3,10 @@ import QRCode from 'qrcode';
 import season from './seasons/2027.js';
 import { fieldSvg, robotSvg, pathSvg, fieldPoint } from './field.js';
 import {
-  DEFAULT_ROBOT, MAX_STEPS, ACTION_SECONDS, timeline, poseAt, routePoints, startProblem, collisions, encodeRoute,
+  DEFAULT_ROBOT, MAX_STEPS, ACTION_SECONDS, timeline, poseAt, routePoints, startProblem, hiveCrossing, collisions, encodeRoute,
 } from './route.js';
 import { scanCode } from './scanner.js';
-import { esc } from './ui.js';
+import { esc, confirmDialog } from './ui.js';
 import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
@@ -58,6 +58,9 @@ export function renderRouteList() {
   });
 }
 
+// Opens one of the team's saved routes in the editor.
+export const openRoute = (id) => openEditor(structuredClone(ui.state.routes.find((r) => r.id === id)));
+
 function scanRoute() {
   scanCode(ui.dialog, 'Scan a route', 'Point the camera at another team’s route QR code.').then((text) => {
     if (!text) return;
@@ -76,10 +79,12 @@ function newRoute() {
 
 // ---------- editor ----------
 
-// `route` is a copy, so nothing changes until Save. `selected` is -1 for the start, or a step's index.
-function openEditor(route) {
+// `route` is a copy, so nothing changes until Save. `selected` is -1 for the start, or a step's index. `saved` is the
+// route as last saved, so leaving with unsaved changes can ask first.
+function openEditor(route, saved = JSON.stringify(routeData(route))) {
   let selected = route.steps.length - 1;
   let dragging = false;
+  scrollTo(0, 0);
   ui.page.innerHTML = `
     <div class="row"><button id="back" class="link">‹ Routes</button></div>
     <input id="route-name" maxlength="100" placeholder="Route name, e.g. Left side 3 tips" value="${esc(route.name)}" aria-label="Route name" />
@@ -226,8 +231,11 @@ function openEditor(route) {
     draw();
   };
   ui.page.querySelector('#robot').onclick = () => openRobotDialog(route, draw);
-  ui.page.querySelector('#back').onclick = renderRouteList;
-  ui.page.querySelector('#play').onclick = () => openPlayer([route], () => openEditor(route));
+  ui.page.querySelector('#back').onclick = () => {
+    if (JSON.stringify(routeData(route)) === saved) return renderRouteList();
+    confirmDialog(ui.dialog, { title: 'Leave without saving?', text: 'Your changes to this route will be lost.', action: 'Leave' }, renderRouteList);
+  };
+  ui.page.querySelector('#play').onclick = () => openPlayer([route], () => openEditor(route, saved));
   ui.page.querySelector('#share').onclick = () => openShareDialog(route);
   ui.page.querySelector('#save').onclick = () => {
     try {
@@ -237,9 +245,10 @@ function openEditor(route) {
     }
   };
   ui.page.querySelector('#delete')?.addEventListener('click', () => {
-    if (!confirm(`Delete ${route.name}?`)) return;
-    ui.fb.deleteRoute(route.id).catch(ui.showError);
-    renderRouteList();
+    confirmDialog(ui.dialog, { title: `Delete ${route.name}?`, text: 'This deletes it for your whole team.', action: 'Delete' }, () => {
+      ui.fb.deleteRoute(route.id).catch(ui.showError);
+      renderRouteList();
+    });
   });
 
   markOptions();
@@ -249,6 +258,9 @@ function openEditor(route) {
 
 // The first thing wrong with the route, or null.
 function routeProblem(route, duration) {
+  const hive = hiveCrossing(route, season);
+  if (route.phase === 'auto' && startProblem(route, season)) return startProblem(route, season);
+  if (hive) return `Step ${hive.step} drives through the ${ALLIANCES[hive.alliance].toLowerCase()} hive.`;
   if (route.phase === 'auto') {
     const problem = startProblem(route, season);
     if (problem) return problem;
@@ -318,11 +330,14 @@ function openShareDialog(route) {
 
 // ---------- player ----------
 
-// Plays routes together on one timeline. `extra` routes (one being edited, or one from a link) are always in;
-// the team's saved routes can be ticked on and off. `back` returns to where the player was opened from.
-export function openPlayer(extra, back = renderRouteList, onSave = null) {
-  const saved = ui.state.routes ?? [];
+// Plays routes of one period together on one timeline, from the start of that period. `extra` routes (one being edited,
+// or one from a link) are always in and set the period; otherwise Auto/Teleop picks it. The team's saved routes of that
+// period can be ticked on and off. `back` returns to where the player was opened from.
+export function openPlayer(extra, back = renderRouteList, onSave = null, startPhase = 'auto') {
+  const phase = extra[0]?.phase ?? startPhase;
+  const saved = (ui.state.routes ?? []).filter((r) => r.phase === phase && !extra.some((e) => e.id && e.id === r.id));
   const chosen = new Set();
+  scrollTo(0, 0);
   let time = 0;
   let playing = false;
   let frame = null;
@@ -330,7 +345,9 @@ export function openPlayer(extra, back = renderRouteList, onSave = null) {
 
   ui.page.innerHTML = `
     <div class="row">${back ? '<button id="back" class="link">‹ Back</button>' : ''}${onSave ? '<button id="save-shared">Add to my routes</button>' : ''}</div>
-    <h1>Play routes</h1>
+    <div class="row"><h1>Play routes</h1>${extra.length ? `<span class="muted">${PERIODS[phase]}</span>` : `
+      <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
+        `<button type="button" data-phase="${id}" aria-pressed="${id === phase}">${label}</button>`).join('')}</div>`}</div>
     <div id="field" class="field-wrap"></div>
     <div class="player-controls">
       <button id="play-pause" aria-label="Play">Play</button>
@@ -342,7 +359,7 @@ export function openPlayer(extra, back = renderRouteList, onSave = null) {
       <h2>Routes</h2>
       ${saved.map((r) => `<label class="check"><input type="checkbox" data-id="${esc(r.id)}" />
         <span class="chip ${esc(r.alliance)}">${esc(r.team || ALLIANCES[r.alliance])}</span><span>${esc(r.name)} <span class="muted small">${esc(summary(r))}</span></span></label>`).join('')}
-    </div>` : ''}`;
+    </div>` : `<p class="muted">No saved ${PERIODS[phase].toLowerCase()} routes yet.</p>`}`;
 
   let routes = [];
   let timed = [];
@@ -411,6 +428,12 @@ export function openPlayer(extra, back = renderRouteList, onSave = null) {
   ui.page.querySelector('#back')?.addEventListener('click', () => {
     stop();
     back();
+  });
+  ui.page.querySelector('[data-phase]')?.parentElement.addEventListener('click', (e) => {
+    const button = e.target.closest('[data-phase]');
+    if (!button || button.dataset.phase === phase) return;
+    stop();
+    openPlayer([], back, onSave, button.dataset.phase);
   });
   ui.page.querySelector('#save-shared')?.addEventListener('click', (e) => {
     e.currentTarget.disabled = true;
