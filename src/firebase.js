@@ -156,6 +156,8 @@ export const deleteMatch = (id) => deleteDoc(doc(db, 'scoutMatches', id));
 
 export const watchButtons = (callback, onError) => onSnapshot(collection(db, 'scoutButtons'), (snap) => callback(listOf(snap)), onError);
 
+export const deleteButton = (id) => deleteDoc(doc(db, 'scoutButtons', id));
+
 // A custom Scout button for the whole team. Returns its id straight away, like saveRoute.
 export function saveButton(button, onError) {
   const ref = doc(collection(db, 'scoutButtons'));

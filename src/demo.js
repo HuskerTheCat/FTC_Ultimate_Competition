@@ -142,3 +142,8 @@ export function saveButton(button) {
   setTimeout(() => buttonListeners.forEach((listener) => listener()));
   return id;
 }
+
+export async function deleteButton(id) {
+  buttons.delete(id);
+  buttonListeners.forEach((listener) => listener());
+}

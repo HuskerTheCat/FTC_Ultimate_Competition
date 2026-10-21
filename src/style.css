@@ -425,3 +425,8 @@ dialog form > section > ul { align-self: stretch; }
 .group > .tally + .tally, .group > summary + .tally { margin-top: 8px; }
 .tally > span:first-child { flex: 1; min-width: 0; }
 .tally > :last-child { flex: none; }
+/* Penalty cards: counters in the card's color. */
+.tally.card-yellow > strong { color: #e8b500; }
+.tally.card-red > strong { color: var(--danger); }
+dialog .tally-list > li { align-items: center; }
+dialog h3 { margin: 8px 0 0; font-size: 1rem; }

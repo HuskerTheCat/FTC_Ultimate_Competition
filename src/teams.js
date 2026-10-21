@@ -4,6 +4,7 @@ import { labelOf, matchPoints, pointsText, openMatchDialog } from './scouting.js
 import { pitOf, openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
 import season from './seasons/2027.js';
+import { teamInfo, homeOf } from './ftcscout.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const average = (list, value) => list.reduce((sum, item) => sum + value(item), 0) / list.length;
@@ -102,6 +103,7 @@ export function renderTeam(team) {
     <div class="row"><h1>Team ${team}</h1>
       <div class="row"><button id="pit-scout" class="secondary">Pit scout</button><button id="back" class="secondary">Back</button></div>
     </div>
+    <section class="card" id="ftcscout" data-team="${team}"><h2>FTCScout</h2><p class="muted">Looking up team ${team}…</p></section>
     ${pit ? comparison(pit, matches) : ''}
     ${matches.length ? `
       <section class="card">
@@ -124,12 +126,33 @@ export function renderTeam(team) {
         <h2>Routes</h2>
         <ul class="tally-list">${routes.map((r) => `<li><span>${esc(r.name)}</span><span class="muted">${PERIODS[r.phase]}</span></li>`).join('')}</ul>
       </section>` : ''}`;
+  showTeamInfo(team);
   ui.page.querySelector('#back').onclick = renderTeamList;
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(team, () => renderTeam(team));
   ui.page.querySelector('.route-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-match]');
     if (card) openMatchDialog(matches[card.dataset.match].records);
   });
+}
+
+// FTCScout's name, home and this season's OPR for the team, filled in when it answers if the page is still open.
+async function showTeamInfo(team) {
+  let html;
+  try {
+    const { team: info, stats } = await teamInfo(team);
+    const opr = (part, label) => `<li><span>${label}</span><strong>${oneDecimal(stats[part].value)} <span class="muted small">#${stats[part].rank}</span></strong></li>`;
+    html = !info ? `<p class="muted">FTCScout doesn’t know team ${team}.</p>` : `
+      <p><strong>${esc(info.name)}</strong><br /><span class="muted small">${esc(homeOf(info))}${info.rookieYear ? ` · rookie year ${info.rookieYear}` : ''}</span></p>
+      ${stats ? `
+        <ul class="tally-list">${opr('tot', 'OPR')}${opr('auto', 'Auto OPR')}${opr('dc', 'Teleop OPR')}${opr('eg', 'Endgame OPR')}</ul>
+        <p class="muted small">Best this season, with world rank.</p>`
+      : '<p class="muted small">No events this season yet.</p>'}
+      <a class="small" href="https://ftcscout.org/teams/${team}" target="_blank" rel="noopener">Open on FTCScout</a>`;
+  } catch {
+    html = '<p class="muted">FTCScout can’t be reached right now. Scouting works without it.</p>';
+  }
+  const card = ui.page.querySelector(`#ftcscout[data-team="${team}"]`);
+  if (card) card.innerHTML = `<h2>FTCScout</h2>${html}`;
 }
 
 // How many times per match the team did each thing, by period.

@@ -2,6 +2,8 @@
 export default {
   id: '2027',
   name: 'BIOBUZZ',
+  // FTCScout names seasons by the year they start.
+  ftcscoutSeason: 2026,
   // Seconds (section 10.4). Robots don't move in the transition.
   periods: { auto: 30, transition: 8, teleop: 120 },
   // Table 10-2. null: can't be scored in that period. Cell, flower and garden count what's there when the match ends.

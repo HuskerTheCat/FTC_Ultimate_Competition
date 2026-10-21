@@ -19,7 +19,7 @@ export const startScouting = (context) => { ui = context; };
 // Counts are { auto: { id: taps }, teleop: { id: taps } }, where id is a season action, a foul, or a custom button's id.
 
 export const labelOf = (id, buttons) =>
-  [...season.actions, ...season.fouls, ...buttons].find((b) => b.id === id)?.label ?? 'Deleted button';
+  [...season.actions, ...season.fouls, ...season.cards, ...buttons].find((b) => b.id === id)?.label ?? 'Deleted button';
 
 // Points scored in each period, and foul points given to the other alliance.
 export function matchPoints(counts, buttons) {
@@ -28,6 +28,7 @@ export function matchPoints(counts, buttons) {
     for (const [id, taps] of Object.entries(counts[period])) {
       const foul = season.fouls.find((f) => f.id === id);
       const action = season.actions.find((a) => a.id === id);
+      if (season.cards.some((c) => c.id === id)) continue;
       if (foul) points.fouls += taps * foul.points;
       else points[period] += taps * (action ? action.points[period] : buttons.find((b) => b.id === id)?.points ?? 0);
     }
@@ -154,6 +155,7 @@ function openCounter(match, teams) {
     ...season.actions.filter((a) => a.points[period] != null)
       .map((a) => ({ id: a.id, label: a.label, points: `+${a.points[period]}`, once: a.once, group: a.group })),
     ...season.fouls.map((f) => ({ id: f.id, label: f.label, points: `${f.points} to them`, foul: true })),
+    ...season.cards.map((c) => ({ id: c.id, label: c.label, points: 'No points', card: c.id })),
     ...ui.state.buttons.map((b) => ({ id: b.id, label: b.label, points: `${b.points >= 0 ? '+' : ''}${b.points}` })),
   ];
 
@@ -166,7 +168,7 @@ function openCounter(match, teams) {
     <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
       <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><span class="box"></span>
     </button>` : `
-    <button type="button" class="tally${b.foul ? ' foul' : ''}" data-id="${esc(b.id)}">
+    <button type="button" class="tally${b.foul ? ' foul' : ''}${b.card ? ` card-${b.card}` : ''}" data-id="${esc(b.id)}">
       <span>${esc(b.label)}<span class="small">${esc(b.points)}</span></span><strong>${sheet.counts[period][b.id] ?? 0}</strong>
     </button>`);
 
@@ -199,7 +201,7 @@ function openCounter(match, teams) {
       </div>
       <div class="row actions">
         <button id="save-match">Save</button>
-        <button id="custom-button" class="secondary">Add custom button</button>
+        <button id="custom-button" class="secondary">Custom buttons</button>
         <button id="cancel" class="secondary">Cancel</button>
       </div>`;
     ui.page.querySelector('.segmented').onclick = (e) => {
@@ -249,26 +251,46 @@ function openCounter(match, teams) {
   render();
 }
 
-// A team-wide button for something the season's buttons don't cover. Points can be 0 for things only worth noting.
-function openButtonDialog(onSave) {
-  ui.dialog.innerHTML = `
-    <form method="dialog" class="card">
-      <h2>Add custom button</h2>
-      <label>Name <input name="label" required maxlength="30" placeholder="e.g. Defended" /></label>
-      <label>Points <input name="points" required type="number" min="-100" max="100" value="0" /></label>
-      <p class="muted small">Everyone on your team gets this button.</p>
-      <div class="row">
-        <button>Add</button>
-        <button type="button" class="secondary" id="cancel-button">Cancel</button>
-      </div>
-    </form>`;
-  const form = ui.dialog.querySelector('form');
-  ui.dialog.querySelector('#cancel-button').onclick = () => ui.dialog.close();
-  form.onsubmit = () => {
-    const button = { label: form.label.value.trim(), points: Number(form.points.value) };
-    // Shown straight away; the team's list catches up when the save reaches the backend.
-    ui.state.buttons = [...ui.state.buttons, { id: ui.fb.saveButton(button, ui.showError), ...button }];
-    onSave();
+// The team's custom buttons, for things the season's buttons don't cover: add one, or delete one nobody needs. Points
+// can be 0 for things only worth noting. Deleting a button keeps the points already saved with matches.
+function openButtonDialog(onChange) {
+  const render = () => {
+    ui.dialog.innerHTML = `
+      <form method="dialog" class="card">
+        <h2>Custom buttons</h2>
+        ${ui.state.buttons.length ? `<ul class="tally-list">${ui.state.buttons.map((b) => `
+          <li><span>${esc(b.label)} <span class="muted small">${b.points >= 0 ? '+' : ''}${b.points}</span></span>
+            <button type="button" class="danger" data-delete="${esc(b.id)}">Delete</button></li>`).join('')}
+        </ul>` : ''}
+        <h3>Add a button</h3>
+        <label>Name <input name="label" maxlength="30" placeholder="e.g. Played defense" /></label>
+        <label>Points <input name="points" type="number" min="-100" max="100" step="1" value="0" /></label>
+        <p class="muted small">Everyone on your team gets these buttons.</p>
+        <div class="row">
+          <button type="button" id="add-button">Add</button>
+          <button class="secondary">Done</button>
+        </div>
+      </form>`;
+    const form = ui.dialog.querySelector('form');
+    form.querySelector('.tally-list')?.addEventListener('click', (e) => {
+      const id = e.target.closest('[data-delete]')?.dataset.delete;
+      if (!id) return;
+      ui.fb.deleteButton(id).catch(ui.showError);
+      ui.state.buttons = ui.state.buttons.filter((b) => b.id !== id);
+      render();
+      onChange();
+    });
+    form.querySelector('#add-button').onclick = () => {
+      const label = form.label.value.trim();
+      const points = Number(form.points.value);
+      if (!label) return form.label.focus();
+      if (!Number.isInteger(points) || Math.abs(points) > 100) return form.points.reportValidity();
+      // Shown straight away; the team's list catches up when the save reaches the backend.
+      ui.state.buttons = [...ui.state.buttons, { id: ui.fb.saveButton({ label, points }, ui.showError), label, points }];
+      render();
+      onChange();
+    };
   };
+  render();
   ui.dialog.showModal();
 }
