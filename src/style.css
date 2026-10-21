@@ -465,3 +465,6 @@ label:has(.team-name) { min-width: 0; }
   .counter .minus { width: 28px; }
 }
 .route-summary { justify-content: flex-start; margin: 0; }
+/* A column's team chip and points stay in view under the bar; it covers the column's padding so taps scroll under it. */
+.sheet-head { position: sticky; top: var(--bar); z-index: 4; margin: -12px -12px 0; padding: 12px 12px 6px; background: var(--surface); border-radius: 16px 16px 0 0; }
+@container (max-width: 400px) { .sheet-head { margin: -8px -8px 0; padding: 8px 8px 4px; } }

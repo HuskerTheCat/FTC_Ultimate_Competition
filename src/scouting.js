@@ -262,7 +262,7 @@ function openCounter(match, sheets, period = 'auto') {
       </div>
       <div class="counter">${sheets.map((sheet, i) => `
         <section class="card" data-sheet="${i}">
-          <div class="row"><span class="chip ${sheet.alliance}">${sheet.team}</span>
+          <div class="row sheet-head"><span class="chip ${sheet.alliance}">${sheet.team}</span>
             <strong>${scored(sheet.counts)} pts</strong></div>
           <p class="muted small team-name" data-team-name="${sheet.team}"></p>
           ${buttons.map((b, at) => {
@@ -285,6 +285,8 @@ function openCounter(match, sheets, period = 'auto') {
         <button id="custom-button" class="secondary">Custom buttons</button>
         <button id="cancel" class="secondary">Cancel</button>
       </div>`;
+    // Each column's team stays in view under the bar while scrolling.
+    ui.page.style.setProperty('--bar', `${ui.page.querySelector('.counter-bar').offsetHeight}px`);
     for (const name of ui.page.querySelectorAll('[data-team-name]')) showTeamName(name, Number(name.dataset.teamName));
     ui.page.querySelector('.counter-bar .segmented').onclick = (e) => {
       const button = e.target.closest('[data-period]');
@@ -334,17 +336,45 @@ function openCounter(match, sheets, period = 'auto') {
       confirmDialog(ui.dialog, { title: `Discard match ${match.match}?`, text: 'What you tapped for this match won’t be saved.', action: 'Discard' }, discard);
     };
     ui.page.querySelector('#save-match').onclick = () => {
-      for (const id of match.replaces ?? []) ui.fb.deleteMatch(id).catch(ui.showError);
-      for (const sheet of sheets) {
-        ui.fb.saveMatch({
-          season: season.id, event: match.event, match: match.match, team: sheet.team, alliance: sheet.alliance,
-          counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
-        }, ui.showError);
+      // A team with nothing tapped is usually one the scout didn't get to, so it's only saved (as 0 points) when asked.
+      const empty = sheets.filter((sheet) => !sheet.notes.trim() && Object.keys(PERIODS).every((p) => !Object.keys(sheet.counts[p]).length));
+      if (!empty.length) return save(sheets);
+      const teams = empty.map((sheet) => sheet.team).join(', ');
+      if (empty.length === sheets.length) {
+        return confirmDialog(ui.dialog, { title: 'Nothing tapped', text: `Save ${teams} as 0 points?`, action: 'Save' }, () => save(sheets));
       }
-      clearDraft();
-      // Straight on to the next match, which is what a scout does next.
-      openSetup(match, `Saved match ${match.match} (${sheets.map((sheet) => sheet.team).join(', ')}).`);
+      ui.dialog.innerHTML = `
+        <form method="dialog" class="card">
+          <h2>Nothing tapped for ${esc(teams)}</h2>
+          <p class="muted">Skip ${empty.length > 1 ? 'them' : 'it'}, or save as 0 points?</p>
+          <div class="row">
+            <button value="skip">Skip empty</button>
+            <button value="all" class="secondary">Save all</button>
+            <button value="back" class="secondary">Back</button>
+          </div>
+        </form>`;
+      ui.dialog.querySelector('form').onsubmit = (e) => {
+        if (e.submitter.value === 'skip') save(sheets.filter((sheet) => !empty.includes(sheet)));
+        if (e.submitter.value === 'all') save(sheets);
+      };
+      ui.dialog.showModal();
     };
+  }
+
+  function save(saving) {
+    // Replaces this scout's earlier records only of the teams saved now.
+    for (const old of ui.state.matches.filter((m) => (match.replaces ?? []).includes(m.id) && saving.some((s) => s.team === m.team))) {
+      ui.fb.deleteMatch(old.id).catch(ui.showError);
+    }
+    for (const sheet of saving) {
+      ui.fb.saveMatch({
+        season: season.id, event: match.event, match: match.match, team: sheet.team, alliance: sheet.alliance,
+        counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
+      }, ui.showError);
+    }
+    clearDraft();
+    // Straight on to the next match, which is what a scout does next.
+    openSetup(match, `Saved match ${match.match} (${saving.map((sheet) => sheet.team).join(', ')}).`);
   }
   render();
 }
