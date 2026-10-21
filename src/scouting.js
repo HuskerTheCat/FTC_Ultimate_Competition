@@ -127,7 +127,7 @@ function allianceLine(alliance, mine, theirs) {
   if (!mine) return `<span class="alliance-line ${alliance}"><b>–</b><span class="muted small">${ALLIANCE_NAMES[alliance]} not scouted</span></span>`;
   const { auto, teleop } = mine.points;
   const fouls = theirs?.points.fouls ?? 0;
-  return `<span class="alliance-line ${alliance}"><b>${sideScore(mine, theirs)}</b><span><span>${ALLIANCE_NAMES[alliance]}${mine.teams.length ? ` · ${mine.teams.join(', ')}` : ''}</span>
+  return `<span class="alliance-line ${alliance}"><b>${sideScore(mine, theirs)}</b><span><span class="teams">${(mine.teams.length ? mine.teams : [`${ALLIANCE_NAMES[alliance]} alliance`]).map((team) => `<span class="chip ${alliance}">${team}</span>`).join('')}</span>
     <span class="muted small">auto ${auto} · teleop ${teleop}${fouls ? ` · ${fouls} from fouls` : ''}${mine.from === 'robots' ? ` · added up from ${mine.teams.length === 1 ? 'only 1 robot' : 'robots'}` : ''}</span></span></span>`;
 }
 
