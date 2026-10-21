@@ -529,3 +529,12 @@ p.match-clock[data-phase="teleop"] { background: #3d7bff; color: #fff; }
   .page:has(.fab) { padding-bottom: 72px; }
 }
 #match-list { display: flex; flex-direction: column; gap: 20px; }
+/* Scout tab: a match card with each alliance's score on its own line, the score big in the alliance's color. */
+.match-card { flex-direction: column; align-items: stretch; gap: 8px; }
+.match-title { display: flex; align-items: baseline; gap: 8px; }
+.route-card.match-card > .alliance-line { display: flex; flex-direction: row; align-items: center; gap: 12px; padding-left: 10px; border-left: 4px solid; }
+.alliance-line.red { border-color: var(--red); }
+.alliance-line.blue { border-color: var(--blue); }
+.alliance-line > b { flex: none; min-width: 2.5em; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.alliance-line > span { display: flex; flex-direction: column; min-width: 0; }
+dialog section > h3 { margin: 0 0 4px; }

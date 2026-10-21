@@ -2,6 +2,7 @@
 import { esc } from './ui.js';
 import { labelOf, matchPoints, pointsText, openMatchDialog, isOnce } from './scouting.js';
 import { eventKey, eventPickerHtml, wireEventPicker, fillEventPicker, inChosenEvent } from './events.js';
+import { scoredMatches, sideScore } from './matchscore.js';
 import { openRoute } from './routes.js';
 import { pitOf, openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
@@ -16,11 +17,26 @@ const oneDecimal = (n) => String(Math.round(n * 10) / 10);
 let ui;
 export const startTeams = (context) => { ui = context; };
 
+// Every record, teams' and whole alliances', for the event picker.
+const allRecords = () => [...ui.state.matches, ...ui.state.alliances];
+
+// The matches at the chosen event that a team played in and that have a score for its alliance, newest first:
+// [{ match, event, alliance, score, theirs, robot }], `theirs` being the other alliance's score when scouted.
+function allianceScoresOf(team) {
+  const inEvent = (r) => inChosenEvent(r, allRecords());
+  return scoredMatches(ui.state.matches.filter(inEvent), ui.state.alliances.filter(inEvent)).flatMap((m) => {
+    const alliance = ['red', 'blue'].find((a) => m[a]?.teams.includes(team));
+    if (!alliance) return [];
+    const other = alliance === 'red' ? 'blue' : 'red';
+    return [{ ...m, alliance, score: sideScore(m[alliance], m[other]), theirs: m[other] ? sideScore(m[other], m[alliance]) : null }];
+  });
+}
+
 // A team's matches at the chosen event, one each even when several scouts watched the team in the same match: their
 // counts and points are averaged, so a match never counts twice. `records` keeps each scout's own record.
 function matchesOf(team) {
   const byMatch = new Map();
-  for (const record of ui.state.matches.filter((m) => m.team === team && inChosenEvent(m, ui.state.matches))) {
+  for (const record of ui.state.matches.filter((m) => m.team === team && inChosenEvent(m, allRecords()))) {
     const key = `${eventKey(record.event)}|${record.match}`;
     byMatch.set(key, [...(byMatch.get(key) ?? []), record]);
   }
@@ -91,20 +107,30 @@ export function renderTeamList() {
 
 // Redraws the list, also for teammates' changes (main.js), leaving the search as it is.
 export function showTeamList() {
-  fillEventPicker(ui.page, ui.state.matches);
-  const numbers = new Set([...ui.state.matches.filter((m) => inChosenEvent(m, ui.state.matches)), ...ui.state.pits].map((item) => item.team));
+  fillEventPicker(ui.page, allRecords());
+  const inEvent = (r) => inChosenEvent(r, allRecords());
+  const numbers = new Set([
+    ...ui.state.matches.filter(inEvent).map((m) => m.team),
+    ...ui.state.alliances.filter(inEvent).flatMap((a) => a.teams),
+    ...ui.state.pits.map((pit) => pit.team),
+  ]);
   const teams = [...numbers].filter((team) => String(team).includes(teamQuery)).map((team) => {
     const matches = matchesOf(team);
     const avg = matches.length ? averages(matches) : null;
-    return { team, matches: matches.length, avg, total: avg ? avg.auto + avg.teleop : -1, pit: pitOf(team) };
-  }).sort((a, b) => b.total - a.total);
+    const scores = allianceScoresOf(team);
+    return {
+      team, matches: matches.length, avg, total: avg ? avg.auto + avg.teleop : -1, pit: pitOf(team),
+      alliance: scores.length ? average(scores, (s) => s.score) : null,
+    };
+  }).sort((a, b) => b.total - a.total || (b.alliance ?? -1) - (a.alliance ?? -1));
   const typed = /^[1-9][0-9]{0,5}$/.test(teamQuery) && !numbers.has(Number(teamQuery));
   ui.page.querySelector('#team-list').innerHTML = `${teams.length ? `
     <ul class="route-list">${teams.map((t) => `
       <li><button class="route-card" data-team="${t.team}">
         <span class="chip">${t.team}</span>
-        <span><strong>${t.avg ? esc(averageText(t.avg)) : 'No matches scouted'}</strong><span class="muted small">${[
-          t.matches && `${t.matches} ${t.matches === 1 ? 'match' : 'matches'} scouted`,
+        <span><strong>${t.avg ? esc(averageText(t.avg)) : 'Robot not scouted'}</strong><span class="muted small">${[
+          t.matches && `robot in ${t.matches} ${t.matches === 1 ? 'match' : 'matches'}`,
+          t.alliance != null && `alliance scores ${oneDecimal(t.alliance)} on average`,
           t.pit && `claims ${claimedPoints(t.pit)} points in the pits`,
         ].filter(Boolean).join(' · ')}</span></span>
       </button></li>`).join('')}
@@ -119,6 +145,7 @@ export function showTeamList() {
 
 export function renderTeam(team) {
   const matches = matchesOf(team);
+  const scores = allianceScoresOf(team);
   const routes = ui.state.routes.filter((r) => r.team === team);
   const pit = pitOf(team);
   scrollTo(0, 0);
@@ -133,13 +160,15 @@ export function renderTeam(team) {
     ${matches.length ? `
       ${rankingHelp(matches)}
       <section class="card">
-        <h2>Averages</h2>
+        <h2>Robot averages</h2>
         <p>${esc(averageText(averages(matches)))}</p>
         <ul class="tally-list">${tapAverages(matches)}</ul>
-      </section>
-      ${info}
+      </section>` : '<div class="card empty"><p class="muted">The robot hasn’t been scouted on its own yet.</p></div>'}
+    ${scores.length ? allianceScores(team, scores, matches) : ''}
+    ${info}
+    ${matches.length ? `
       <section class="card">
-        <h2>Matches</h2>
+        <h2>Robot matches</h2>
         <ul class="route-list">${matches.map((m, i) => `
           <li><button class="route-card" data-match="${i}">
             <span class="chip ${esc(m.alliance)}">${m.match}</span>
@@ -147,7 +176,7 @@ export function renderTeam(team) {
           </button></li>`).join('')}
         </ul>
       </section>`
-    : `<div class="card empty"><p class="muted">No matches scouted yet.</p></div>${info}`}
+    : ''}
     ${routes.length ? `
       <section class="card">
         <h2>Routes</h2>
@@ -157,15 +186,17 @@ export function renderTeam(team) {
           </button></li>`).join('')}</ul>
       </section>` : ''}`;
   wireEventPicker(ui.page, () => renderTeam(team));
-  fillEventPicker(ui.page, ui.state.matches);
+  fillEventPicker(ui.page, allRecords());
   showTeamInfo(team);
   ui.page.querySelector('#back').onclick = renderTeamList;
   ui.page.querySelector('#pit-scout').onclick = () => openPitForm(team, () => renderTeam(team));
   for (const list of ui.page.querySelectorAll('.route-list')) {
     list.addEventListener('click', (e) => {
       const match = e.target.closest('[data-match]');
+      const scored = e.target.closest('[data-scored]');
       const route = e.target.closest('[data-route]');
-      if (match) openMatchDialog(matches[match.dataset.match].records);
+      if (match) openMatchDialog(matches[match.dataset.match].records, `${team} in match ${matches[match.dataset.match].match}`);
+      if (scored) openMatchDialog(scores[scored.dataset.scored].records, `Match ${scores[scored.dataset.scored].match}`);
       if (route) {
         ui.showTab('routes');
         openRoute(route.dataset.route);
@@ -195,6 +226,28 @@ async function showTeamInfo(team) {
 }
 
 // What the team adds per match toward each ranking point, which its alliance as a whole has to reach.
+// The scores of the alliances the team played on, apart from what its robot scored itself: the average, the record, and
+// each match's score against the other alliance's, with what the robot scored in it when it was scouted on its own.
+function allianceScores(team, scores, matches) {
+  const decided = scores.filter((s) => s.theirs != null);
+  const won = decided.filter((s) => s.score > s.theirs).length;
+  const robotIn = (s) => matches.find((m) => m.match === s.match && eventKey(m.event) === eventKey(s.event));
+  return `
+    <section class="card">
+      <h2>Alliance scores</h2>
+      <p>${oneDecimal(average(scores, (s) => s.score))} points on average${decided.length ? ` · won ${won} of ${decided.length}` : ''}</p>
+      <ul class="route-list">${scores.map((s, i) => `
+        <li><button class="route-card" data-scored="${i}">
+          <span class="chip ${s.alliance}">${s.match}</span>
+          <span><strong>${s.score}${s.theirs != null ? ` to ${s.theirs}` : ''}</strong><span class="muted small">${[
+            `${s.alliance === 'red' ? 'Red' : 'Blue'} with ${s[s.alliance].teams.filter((t) => t !== team).join(', ') || 'partner unknown'}`,
+            robotIn(s) && `robot scored ${oneDecimal(robotIn(s).points.auto + robotIn(s).points.teleop)}`,
+          ].filter(Boolean).join(' · ')}</span></span>
+        </button></li>`).join('')}
+      </ul>
+    </section>`;
+}
+
 function rankingHelp(matches) {
   const part = (rp, m) => Object.keys(PERIODS).reduce((sum, period) => sum + rp.actions.reduce((total, id) => {
     const taps = m.counts[period][id] ?? 0;

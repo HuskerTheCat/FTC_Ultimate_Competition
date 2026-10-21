@@ -10,7 +10,7 @@ service cloud.firestore {
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
     function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 5; }
+    function scoutRulesVersion() { return 6; }
 
     function signedIn() {
       return request.auth != null;
@@ -286,6 +286,28 @@ service cloud.firestore {
     match /scoutMatches/{id} {
       allow read: if isMember();
       allow create: if isMember() && validMatch();
+      allow delete: if isMember();
+    }
+
+    // One alliance's result in one match, scouted as a whole from the Scout tab. Same rules as a team's result.
+    function validAlliance() {
+      let record = request.resource.data;
+      return record.keys().hasOnly(['season', 'event', 'match', 'alliance', 'teams', 'counts', 'points', 'notes', 'events', 'scout', 'savedAt'])
+        && record.season is string && record.season.size() <= 20
+        && record.event is string && record.event.size() <= 100
+        && record.match is int && record.match > 0
+        && record.alliance in ['red', 'blue']
+        && record.teams is list && record.teams.size() <= 2
+        && record.counts is map
+        && record.points is map
+        && record.notes is string && record.notes.size() <= 2000
+        && record.events is list && record.events.size() <= 1000
+        && record.scout == request.auth.uid
+        && record.savedAt == request.time;
+    }
+    match /scoutAlliances/{id} {
+      allow read: if isMember();
+      allow create: if isMember() && validAlliance();
       allow delete: if isMember();
     }
 

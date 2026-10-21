@@ -3,6 +3,7 @@
 import season from './seasons/2027.js';
 import { esc, confirmDialog, ICON_CLIPBOARD } from './ui.js';
 import { eventKey, eventPickerHtml, wireEventPicker, fillEventPicker, inChosenEvent } from './events.js';
+import { scoredMatches, sideScore } from './matchscore.js';
 import { openPitForm } from './pits.js';
 import { wireNumpads } from './numpad.js';
 import { teamInfo } from './ftcscout.js';
@@ -11,7 +12,12 @@ const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
 const SLOTS = [['red', 'Red 1'], ['red', 'Red 2'], ['blue', 'Blue 1'], ['blue', 'Blue 2']];
 // Which alliance this device's scout watches. Usually two scouts split a match, one per alliance; saved on this device.
 const SIDES = { both: 'Both', red: 'Red', blue: 'Blue' };
+const ALLIANCE_NAMES = { red: 'Red', blue: 'Blue' };
 const SIDE_KEY = 'ftc-scout-side';
+// What this device's scout counts: each robot on its own, or each alliance as a whole (one column per alliance, for a
+// scout who wants the match score more than who scored it). Saved on this device.
+const MODES = { robots: 'Robots', alliance: 'Alliance' };
+const MODE_KEY = 'ftc-scout-mode';
 // The match being scouted, kept on this device until it's saved or discarded, so a reload or a locked phone loses nothing.
 const DRAFT_KEY = 'ftc-scout-draft';
 const BUTTON_PERIODS = { both: 'Auto and teleop', auto: 'Auto only', teleop: 'Teleop only' };
@@ -82,23 +88,13 @@ const timeText = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(s
 // The interval that runs the clock of the open counter; one at a time.
 let clockTimer = null;
 
-// The chosen event's records grouped by match, newest match first: [{ event, match, records }]. A search keeps the
-// records of teams whose number has it in it, or of the match with that number.
-function matchGroups(query) {
-  const groups = new Map();
-  const found = (record) => !query || String(record.team).includes(query) || String(record.match) === query;
-  for (const record of ui.state.matches.filter((m) => inChosenEvent(m, ui.state.matches) && found(m))) {
-    const key = `${eventKey(record.event)}|${record.match}`;
-    if (!groups.has(key)) groups.set(key, { event: record.event, match: record.match, records: [] });
-    groups.get(key).records.push(record);
-  }
-  return [...groups.values()].sort((a, b) => b.match - a.match);
-}
-
-// Opening the tab goes straight back to a match still being scouted.
 // What's typed in the search, kept while the list is redrawn for teammates' changes.
 let scoutQuery = '';
 
+// Every record, teams' and whole alliances', for the event picker.
+const allRecords = () => [...ui.state.matches, ...ui.state.alliances];
+
+// Opening the tab goes straight back to a match still being scouted.
 export function renderScoutList() {
   const draft = loadDraft();
   if (draft) return openCounter(draft.match, draft.sheets, draft.period);
@@ -109,7 +105,7 @@ export function renderScoutList() {
       <button id="pit-scout" class="secondary with-icon">${ICON_CLIPBOARD}<span>Pit scout</span></button>
       <button id="new-match" class="fab">+ Match scout</button>
     </div>
-    <div id="match-list"></div>`;
+    <ul id="match-list" class="route-list"></ul>`;
   wireEventPicker(ui.page, showMatchList);
   wireNumpads(ui.page);
   ui.page.querySelector('#new-match').onclick = () => openSetup();
@@ -119,27 +115,37 @@ export function renderScoutList() {
     showMatchList();
   };
   ui.page.querySelector('#match-list').onclick = (e) => {
-    const card = e.target.closest('[data-id]');
-    if (card) openMatchDialog([ui.state.matches.find((m) => m.id === card.dataset.id)]);
+    const card = e.target.closest('[data-key]');
+    const match = card && scoredMatches(ui.state.matches, ui.state.alliances).find((m) => m.key === card.dataset.key);
+    if (match) openMatchDialog(match.records, `Match ${match.match}`);
   };
   showMatchList();
 }
 
-// Redraws the list, also for teammates' changes (main.js), leaving the search as it is.
+// One alliance's line on a match card: its score, its teams and where the points came from.
+function allianceLine(alliance, mine, theirs) {
+  if (!mine) return `<span class="alliance-line ${alliance}"><b>–</b><span class="muted small">${ALLIANCE_NAMES[alliance]} not scouted</span></span>`;
+  const { auto, teleop } = mine.points;
+  const fouls = theirs?.points.fouls ?? 0;
+  return `<span class="alliance-line ${alliance}"><b>${sideScore(mine, theirs)}</b><span><span>${ALLIANCE_NAMES[alliance]}${mine.teams.length ? ` · ${mine.teams.join(', ')}` : ''}</span>
+    <span class="muted small">auto ${auto} · teleop ${teleop}${fouls ? ` · ${fouls} from fouls` : ''}${mine.from === 'robots' ? ` · added up from ${mine.teams.length === 1 ? 'only 1 robot' : 'robots'}` : ''}</span></span></span>`;
+}
+
+// Redraws the list, also for teammates' changes (main.js), leaving the search as it is: each scouted match at the
+// chosen event with both alliances' scores, newest first. A search keeps matches with that team in them, or that number.
 export function showMatchList() {
-  fillEventPicker(ui.page, ui.state.matches);
-  const groups = matchGroups(scoutQuery);
-  ui.page.querySelector('#match-list').innerHTML = groups.length ? groups.map((g) => `
-    <section class="match-group">
-      <h2>Match ${g.match}${g.event ? ` <span class="muted small">${esc(g.event)}</span>` : ''}</h2>
-      <ul class="route-list">${g.records.sort((a, b) => a.team - b.team).map((m) => `
-        <li><button class="route-card" data-id="${esc(m.id)}">
-          <span class="chip ${esc(m.alliance)}">${m.team}</span>
-          <span><strong>${esc(pointsText(m.points))}</strong><span class="muted small">by ${esc(scoutName(m))}</span></span>
-        </button></li>`).join('')}
-      </ul>
-    </section>`).join('')
-    : `<div class="card empty"><p class="muted">${scoutQuery ? 'No matches found.' : 'No matches scouted yet.'}</p></div>`;
+  fillEventPicker(ui.page, allRecords());
+  const found = (m) => !scoutQuery || String(m.match) === scoutQuery
+    || [m.red, m.blue].some((side) => side?.teams.some((team) => String(team).includes(scoutQuery)));
+  const matches = scoredMatches(ui.state.matches.filter((m) => inChosenEvent(m, allRecords())),
+    ui.state.alliances.filter((a) => inChosenEvent(a, allRecords()))).filter(found);
+  ui.page.querySelector('#match-list').innerHTML = matches.length ? matches.map((m) => `
+    <li><button class="route-card match-card" data-key="${esc(m.key)}">
+      <span class="match-title"><strong>Match ${m.match}</strong>${m.event ? `<span class="muted small">${esc(m.event)}</span>` : ''}</span>
+      ${allianceLine('red', m.red, m.blue)}
+      ${allianceLine('blue', m.blue, m.red)}
+    </button></li>`).join('')
+    : `<li class="card empty"><p class="muted">${scoutQuery ? 'No matches found.' : 'No matches scouted yet.'}</p></li>`;
 }
 
 export const isOnce = (id) => Boolean(season.actions.find((a) => a.id === id)?.once);
@@ -149,17 +155,21 @@ export const scoutName = (record) => {
   return member ? member.name || member.email : 'a former member';
 };
 
-// One team in one match, as each scout who watched it saw it: what was tapped, the notes, and Delete for mistakes.
-export function openMatchDialog(records) {
-  const { team, match } = records[0];
+// Who a record is about: a team, or an alliance scouted as a whole.
+export const recordName = (record) => (record.teams ? `${ALLIANCE_NAMES[record.alliance]} alliance${record.teams.length ? ` · ${record.teams.join(', ')}` : ''}` : `${record.team}`);
+
+// Records of one match, as each scout saw them: what was tapped, the notes, the timeline, and Delete for mistakes.
+export function openMatchDialog(records, title) {
+  const { match } = records[0];
   ui.dialog.innerHTML = `
     <form method="dialog" class="card">
-      <h2>${team} in match ${match}</h2>
+      <h2>${esc(title)}</h2>
       ${records.map((record) => {
         const rows = Object.keys(PERIODS).flatMap((period) => Object.entries(record.counts[period])
-          .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${isOnce(id) ? 'Yes' : taps}</strong></li>`));
+          .map(([id, taps]) => `<li><span>${PERIODS[period]} · ${esc(labelOf(id, ui.state.buttons))}</span><strong>${isOnce(id) && !record.teams ? 'Yes' : taps}</strong></li>`));
         return `
           <section>
+            <h3><span class="chip ${esc(record.alliance)}">${esc(recordName(record))}</span></h3>
             <p class="muted small">${esc(pointsText(record.points))} · by ${esc(scoutName(record))}</p>
             ${rows.length ? `<ul class="tally-list">${rows.join('')}</ul>` : '<p class="muted">Nothing tapped.</p>'}
             ${record.notes ? `<p>${esc(record.notes)}</p>` : ''}
@@ -176,8 +186,8 @@ export function openMatchDialog(records) {
     if (!id) return;
     const record = records.find((r) => r.id === id);
     confirmDialog(ui.dialog, {
-      title: `Delete ${scoutName(record)}’s record of ${team} in match ${match}?`, text: 'This can’t be undone.', action: 'Delete',
-    }, () => ui.fb.deleteMatch(id).catch(ui.showError));
+      title: `Delete ${scoutName(record)}’s record of ${recordName(record)} in match ${match}?`, text: 'This can’t be undone.', action: 'Delete',
+    }, () => (record.teams ? ui.fb.deleteAlliance(id) : ui.fb.deleteMatch(id)).catch(ui.showError));
   };
   ui.dialog.showModal();
 }
@@ -187,9 +197,9 @@ export function openMatchDialog(records) {
 // The event and next match number follow on from `after` (the match just saved), or else from the last match scouted.
 // `notice` says what was just saved.
 function openSetup(after = null, notice = '') {
-  const last = after ?? ui.state.matches.reduce((a, b) => (a && a.match >= b.match ? a : b), null);
+  const last = after ?? allRecords().reduce((a, b) => (a && a.match >= b.match ? a : b), null);
   scrollTo(0, 0);
-  const events = [...new Map(ui.state.matches.filter((m) => m.event).map((m) => [eventKey(m.event), m.event])).values()];
+  const events = [...new Map(allRecords().filter((m) => m.event).map((m) => [eventKey(m.event), m.event])).values()];
   ui.page.innerHTML = `
     <div class="row"><h1>Match scout</h1></div>
     ${notice ? `<p class="notice" role="status">${esc(notice)}</p>` : ''}
@@ -199,8 +209,15 @@ function openSetup(after = null, notice = '') {
         <datalist id="events">${events.map((e) => `<option value="${esc(e)}"></option>`).join('')}</datalist>
         <label>Match <input name="match" required data-numpad="Match" maxlength="4" pattern="[1-9][0-9]{0,3}" value="${last ? last.match + 1 : 1}" /></label>
       </div>
-      <div class="segmented" role="group" aria-label="Alliance to watch">${Object.entries(SIDES).map(([id, label]) =>
-        `<button type="button" class="${id}" data-side="${id}">${label}</button>`).join('')}</div>
+      <div class="row pair">
+        <div class="field">Count
+          <div class="segmented" role="group" aria-label="Count">${Object.entries(MODES).map(([id, label]) =>
+            `<button type="button" data-mode="${id}">${label}</button>`).join('')}</div></div>
+        <div class="field">Watch
+          <div class="segmented" role="group" aria-label="Alliance to watch">${Object.entries(SIDES).map(([id, label]) =>
+            `<button type="button" class="${id}" data-side="${id}">${label}</button>`).join('')}</div></div>
+      </div>
+      <p class="muted small" id="mode-help"></p>
       <div class="row pair">${SLOTS.map(([alliance, label], i) => `
         <label data-alliance="${alliance}"><span class="chip ${alliance}">${label}</span>
           <input name="team${i}" data-numpad="${label}" maxlength="6" pattern="[1-9][0-9]{0,5}" placeholder="Team number" />
@@ -216,11 +233,21 @@ function openSetup(after = null, notice = '') {
     for (const button of ui.page.querySelectorAll('[data-side]')) button.setAttribute('aria-pressed', String(button.dataset.side === side));
     for (const label of ui.page.querySelectorAll('[data-alliance]')) label.hidden = side !== 'both' && label.dataset.alliance !== side;
   };
+  const showMode = (mode) => {
+    localStorage.setItem(MODE_KEY, mode);
+    for (const button of ui.page.querySelectorAll('[data-mode]')) button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+    ui.page.querySelector('#mode-help').textContent = mode === 'alliance'
+      ? 'One counter per alliance for everything its robots do. Team numbers are optional.'
+      : 'One counter per robot.';
+  };
   showSide(localStorage.getItem(SIDE_KEY) ?? 'both');
+  showMode(localStorage.getItem(MODE_KEY) ?? 'robots');
   wireNumpads(ui.page);
-  ui.page.querySelector('.segmented').onclick = (e) => {
-    const button = e.target.closest('[data-side]');
-    if (button) showSide(button.dataset.side);
+  ui.page.querySelector('#setup').onclick = (e) => {
+    const side = e.target.closest('[data-side]');
+    const mode = e.target.closest('[data-mode]');
+    if (side) showSide(side.dataset.side);
+    if (mode) showMode(mode.dataset.mode);
   };
   ui.page.querySelector('#cancel').onclick = renderScoutList;
   ui.page.querySelector('#setup').oninput = (e) => {
@@ -233,21 +260,30 @@ function openSetup(after = null, notice = '') {
   ui.page.querySelector('#setup').onsubmit = (e) => {
     e.preventDefault();
     const form = e.target;
-    const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t, i) => t.team && !form.querySelectorAll('[data-alliance]')[i].hidden);
-    if (!teams.length) return ui.showError(new Error('Type at least one team number.'));
+    const alliances = localStorage.getItem(SIDE_KEY) === 'both' || !localStorage.getItem(SIDE_KEY) ? ['red', 'blue'] : [localStorage.getItem(SIDE_KEY)];
+    const teams = SLOTS.map(([alliance], i) => ({ alliance, team: Number(form[`team${i}`].value) })).filter((t) => t.team && alliances.includes(t.alliance));
+    const byAlliance = localStorage.getItem(MODE_KEY) === 'alliance';
+    if (!byAlliance && !teams.length) return ui.showError(new Error('Type at least one team number.'));
     const twice = teams.find((t, i) => teams.findIndex((other) => other.team === t.team) !== i);
     if (twice) return ui.showError(new Error(`Team ${twice.team} is typed in twice.`));
     const event = form.event.value.trim();
     const number = Number(form.match.value);
-    // Scouting a team again in the same match replaces this scout's earlier record, so it isn't counted twice.
-    const redo = ui.state.matches.filter((m) => m.scout === ui.state.user.uid && m.match === number
-      && eventKey(m.event) === eventKey(event) && teams.some((t) => t.team === m.team));
-    const start = () => openCounter({ event, match: number, replaces: redo.map((m) => m.id) },
-      teams.map((t) => ({ ...t, counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: [] })));
+    const sheet = { counts: { auto: {}, teleop: {} }, taps: [], notes: '', open: [] };
+    // Each robot has a column, or each alliance one with its teams.
+    const sheets = byAlliance
+      ? alliances.map((alliance) => ({ ...structuredClone(sheet), alliance, teams: teams.filter((t) => t.alliance === alliance).map((t) => t.team) }))
+      : teams.map((t) => ({ ...structuredClone(sheet), ...t }));
+    // Scouting the same team or alliance again in a match replaces this scout's earlier record, so it isn't counted twice.
+    const same = (m) => m.scout === ui.state.user.uid && m.match === number && eventKey(m.event) === eventKey(event);
+    const redo = [
+      ...ui.state.matches.filter((m) => same(m) && sheets.some((s) => s.team === m.team)),
+      ...ui.state.alliances.filter((a) => same(a) && sheets.some((s) => s.teams && s.alliance === a.alliance)),
+    ];
+    const start = () => openCounter({ event, match: number, replaces: redo.map((m) => m.id) }, sheets);
     if (!redo.length) return start();
     confirmDialog(ui.dialog, {
       title: 'Scouted already',
-      text: `You already scouted ${redo.map((m) => m.team).join(', ')} in match ${number}. Saving replaces it.`,
+      text: `You already scouted ${redo.map(recordName).join(', ')} in match ${number}. Saving replaces it.`,
       action: 'Scout again',
     }, start);
   };
@@ -287,7 +323,8 @@ function openCounter(match, sheets, period = 'auto') {
     return auto + teleop;
   };
 
-  const tally = (b, sheet) => (b.once ? `
+  // Things done once a period are checkboxes for a robot; an alliance's column counts them (one per robot).
+  const tally = (b, sheet) => (b.once && !sheet.teams ? `
     <button type="button" class="tally" data-id="${esc(b.id)}" data-once role="checkbox" aria-checked="${Boolean(sheet.counts[period][b.id])}">
       <span><span>${esc(b.label)}</span><span class="small">${esc(b.points)}</span></span><span class="box"></span>
     </button>` : `
@@ -336,9 +373,9 @@ function openCounter(match, sheets, period = 'auto') {
       </div>
       <div class="counter">${sheets.map((sheet, i) => `
         <section class="card" data-sheet="${i}">
-          <div class="row sheet-head"><span class="chip ${sheet.alliance}">${sheet.team}</span>
+          <div class="row sheet-head"><span class="chip ${sheet.alliance}">${sheet.teams ? `${ALLIANCE_NAMES[sheet.alliance]} alliance` : sheet.team}</span>
             <strong>${scored(sheet.counts)} pts</strong></div>
-          <p class="muted small team-name" data-team-name="${sheet.team}"></p>
+          ${sheet.teams ? `<p class="muted small team-name">${sheet.teams.join(', ')}</p>` : `<p class="muted small team-name" data-team-name="${sheet.team}"></p>`}
           ${buttons.map((b, at) => {
             if (!b.group) return tally(b, sheet);
             // A group is drawn once, where its first button would be.
@@ -420,7 +457,7 @@ function openCounter(match, sheets, period = 'auto') {
       // A team with nothing tapped is usually one the scout didn't get to, so it's only saved (as 0 points) when asked.
       const empty = sheets.filter((sheet) => !sheet.notes.trim() && Object.keys(PERIODS).every((p) => !Object.keys(sheet.counts[p]).length));
       if (!empty.length) return save(sheets);
-      const teams = empty.map((sheet) => sheet.team).join(', ');
+      const teams = empty.map(recordName).join(', ');
       if (empty.length === sheets.length) {
         return confirmDialog(ui.dialog, { title: 'Nothing tapped', text: `Save ${teams} as 0 points?`, action: 'Save' }, () => save(sheets));
       }
@@ -443,20 +480,23 @@ function openCounter(match, sheets, period = 'auto') {
   }
 
   function save(saving) {
-    // Replaces this scout's earlier records only of the teams saved now.
-    for (const old of ui.state.matches.filter((m) => (match.replaces ?? []).includes(m.id) && saving.some((s) => s.team === m.team))) {
-      ui.fb.deleteMatch(old.id).catch(ui.showError);
+    // Replaces this scout's earlier records only of the teams and alliances saved now.
+    const replaced = (m) => (match.replaces ?? []).includes(m.id);
+    for (const old of ui.state.matches.filter((m) => replaced(m) && saving.some((s) => s.team === m.team))) ui.fb.deleteMatch(old.id).catch(ui.showError);
+    for (const old of ui.state.alliances.filter((a) => replaced(a) && saving.some((s) => s.teams && s.alliance === a.alliance))) {
+      ui.fb.deleteAlliance(old.id).catch(ui.showError);
     }
     for (const sheet of saving) {
-      ui.fb.saveMatch({
-        season: season.id, event: match.event, match: match.match, team: sheet.team, alliance: sheet.alliance,
-        counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(),
-        events: sheet.taps,
-      }, ui.showError);
+      const record = {
+        season: season.id, event: match.event, match: match.match, alliance: sheet.alliance,
+        counts: sheet.counts, points: matchPoints(sheet.counts, ui.state.buttons), notes: sheet.notes.trim(), events: sheet.taps,
+      };
+      if (sheet.teams) ui.fb.saveAlliance({ ...record, teams: sheet.teams }, ui.showError);
+      else ui.fb.saveMatch({ ...record, team: sheet.team }, ui.showError);
     }
     clearDraft();
     // Straight on to the next match, which is what a scout does next.
-    openSetup(match, `Saved match ${match.match} (${saving.map((sheet) => sheet.team).join(', ')}).`);
+    openSetup(match, `Saved match ${match.match} (${saving.map(recordName).join(', ')}).`);
   }
   render();
   if (match.startedAt) runClock();

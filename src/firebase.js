@@ -154,6 +154,15 @@ export function saveMatch(match, onError) {
 
 export const deleteMatch = (id) => deleteDoc(doc(db, 'scoutMatches', id));
 
+// An alliance scouted as a whole in one match: its teams, counts and points together.
+export const watchAlliances = (callback, onError) => onSnapshot(collection(db, 'scoutAlliances'), (snap) => callback(listOf(snap)), onError);
+
+export function saveAlliance(record, onError) {
+  setDoc(doc(collection(db, 'scoutAlliances')), { ...record, scout: auth.currentUser.uid, savedAt: serverTimestamp() }).catch(onError);
+}
+
+export const deleteAlliance = (id) => deleteDoc(doc(db, 'scoutAlliances', id));
+
 export const watchButtons = (callback, onError) => onSnapshot(collection(db, 'scoutButtons'), (snap) => callback(listOf(snap)), onError);
 
 export const deleteButton = (id) => deleteDoc(doc(db, 'scoutButtons', id));

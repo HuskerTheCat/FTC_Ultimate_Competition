@@ -98,6 +98,14 @@ const matches = new Map([
   ['m4', { season: '2027', event: 'Demo Qualifier', match: 4, team: 22222, alliance: 'blue', scout: 'gabby', notes: 'Pushed into our robot.',
     counts: counts({}, { garden: 8, major: 1 }), points: { auto: 0, teleop: 8, fouls: 20 } }],
 ]);
+// Gabby scouted red in match 1 as a whole alliance, Husker blue in match 4.
+const alliances = new Map([
+  ['a1', { season: '2027', event: 'Demo Qualifier', match: 1, alliance: 'red', teams: [11111, 44444], scout: 'gabby', notes: 'Both parked.', events: [],
+    counts: counts({ leave: 2, hiveTip: 1 }, { cell: 10, garden: 9, park: 2, minor: 1 }), points: { auto: 26, teleop: 39, fouls: 5 } }],
+  ['a2', { season: '2027', event: 'Demo Qualifier', match: 4, alliance: 'blue', teams: [22222, 55555], scout: 'demo', notes: '', events: [],
+    counts: counts({ leave: 1 }, { cell: 6, garden: 8, park: 1, major: 1 }), points: { auto: 3, teleop: 25, fouls: 20 } }],
+]);
+const allianceListeners = new Set();
 const buttons = new Map([['defended', { label: 'Played defense', points: 0, period: 'teleop' }]]);
 // 67890 oversells its teleop in the pits; 33333 was only pit scouted.
 const pits = new Map([
@@ -119,6 +127,17 @@ const watch = (map, listeners) => (callback) => {
 
 export const watchMatches = watch(matches, matchListeners);
 export const watchButtons = watch(buttons, buttonListeners);
+export const watchAlliances = watch(alliances, allianceListeners);
+
+export function saveAlliance(record) {
+  alliances.set(`alliance${nextId++}`, { ...structuredClone(record), scout: USER.uid });
+  setTimeout(() => allianceListeners.forEach((listener) => listener()));
+}
+
+export async function deleteAlliance(id) {
+  alliances.delete(id);
+  allianceListeners.forEach((listener) => listener());
+}
 export const watchPits = watch(pits, pitListeners);
 
 let robot = null;

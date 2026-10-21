@@ -52,7 +52,7 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], matches: [], buttons: [], pits: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], alliances: [], buttons: [], pits: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -605,6 +605,11 @@ async function start() {
       fb.watchMatches((matches) => {
         state.matches = matches;
         // Lists follow teammates' scouting; counters and team pages are left alone.
+        if (app.querySelector('#match-list')) showMatchList();
+        if (app.querySelector('#team-list')) showTeamList();
+      }, onError),
+      fb.watchAlliances((alliances) => {
+        state.alliances = alliances;
         if (app.querySelector('#match-list')) showMatchList();
         if (app.querySelector('#team-list')) showTeamList();
       }, onError),
