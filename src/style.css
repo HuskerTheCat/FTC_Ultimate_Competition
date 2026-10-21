@@ -1,7 +1,7 @@
-@import '@fontsource/barlow/latin-400.css';
-@import '@fontsource/barlow/latin-500.css';
-@import '@fontsource/barlow/latin-600.css';
-@import '@fontsource/barlow/latin-700.css';
+@import '@fontsource/saira/latin-400.css';
+@import '@fontsource/saira/latin-500.css';
+@import '@fontsource/saira/latin-600.css';
+@import '@fontsource/saira/latin-700.css';
 @import '@fontsource/orbitron/latin-500.css';
 @import '@fontsource/orbitron/latin-800.css';
 
@@ -55,7 +55,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.45 Barlow, system-ui, sans-serif;
+  font: 16px/1.45 Saira, system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
 }
@@ -86,6 +86,11 @@ a { color: var(--accent); }
 .app-icon.scout { background-image: url(../public/icon.svg); }
 .app-icon.design { background-image: url(./design.svg); }
 #apps-menu .app-icon { flex: none; width: 28px; height: 28px; }
+#apps-menu .menu-item, #apps-menu h3 { font-family: Orbitron, sans-serif; }
+#apps-menu .menu-item:has(.inventory) { color: #5b9bff; }
+#apps-menu .menu-item:has(.design) { color: #45d08f; }
+:root[data-theme="light"] #apps-menu .menu-item:has(.inventory) { color: #2563d9; }
+:root[data-theme="light"] #apps-menu .menu-item:has(.design) { color: #16804d; }
 /* Menus, as in Inventory. */
 .menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 260px; padding: 6px; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--float-shadow); }
 .menu[hidden] { display: none; }
@@ -355,7 +360,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .field .grid line { stroke: var(--field-line); stroke-width: 0.4; }
 .field .middle { stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 2 2; }
 .field .wall { fill: none; stroke: var(--muted); stroke-width: 1; }
-.field .labels text { fill: var(--muted); font: 600 5px Barlow, sans-serif; text-anchor: middle; }
+.field .labels text { fill: var(--muted); font: 600 5px Saira, sans-serif; text-anchor: middle; }
 .field .zone, .field .garden { stroke: none; opacity: 0.35; }
 .field .hive { fill: none; stroke-width: 1; }
 .field .red:is(.zone, .garden) { fill: var(--red); }
@@ -365,7 +370,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .field .flower { fill: #f2c94c; }
 .robot polygon { stroke-width: 1; fill-opacity: 0.35; }
 .robot line { stroke-width: 1.2; stroke: var(--text); }
-.robot text { fill: var(--text); font: 700 4.5px Barlow, sans-serif; text-anchor: middle; pointer-events: none; }
+.robot text { fill: var(--text); font: 700 4.5px Saira, sans-serif; text-anchor: middle; pointer-events: none; }
 .robot.red polygon { fill: var(--red); stroke: var(--red); }
 .robot.blue polygon { fill: var(--blue); stroke: var(--blue); }
 .robot.start { cursor: grab; }
@@ -381,7 +386,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .path.red .dot circle { stroke: var(--red); }
 .path.blue .dot circle { stroke: var(--blue); }
 .path .dot.selected circle { fill: var(--accent); stroke: var(--accent); }
-.path .dot text { fill: var(--text); font: 700 3.4px Barlow, sans-serif; text-anchor: middle; pointer-events: none; }
+.path .dot text { fill: var(--text); font: 700 3.4px Saira, sans-serif; text-anchor: middle; pointer-events: none; }
 
 .editor-options { gap: 8px; }
 .editor-options #route-team { width: 96px; }
