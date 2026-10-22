@@ -545,3 +545,18 @@ p.match-clock[data-phase="teleop"] { background: #3d7bff; color: #fff; }
 .alliance-line .chip { font-size: 0.95rem; font-weight: 700; padding: 3px 10px; }
 .alliance-line > span { display: flex; flex-direction: column; min-width: 0; }
 dialog section > h3 { margin: 0 0 4px; }
+
+/* Opening another FTC Ultimate app on the website (src/switching.js): that app's loading screen, its cube turning (public/loading.svg)
+   over "FTC Ultimate" and its name, on the topographic map of that app's first screens. Always the dark map, like the link preview,
+   so it looks the same on both pages whatever mode each app is in. */
+#switching { --topo-to: #3460d6; --topo-line: #5b9bff; position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: linear-gradient(110deg, #0e1221 55%, var(--topo-to) 100%); color: #eef1f8; opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0s 0.25s; }
+#switching::before { content: ''; position: absolute; inset: 0; background: var(--topo-line); opacity: 0.3; -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; }
+#switching img { position: relative; width: 128px; height: 128px; }
+#switching p { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0; font: 800 1.6rem/1.15 Orbitron, sans-serif; }
+#switching .app-name { font-weight: 500; color: var(--topo-line); }
+#switching[data-app="competition"] { --topo-to: #cc6414; --topo-line: #ffa53d; }
+#switching[data-app="design"] { --topo-to: #168a55; --topo-line: #45d08f; }
+.switching #switching { opacity: 1; visibility: visible; transition: opacity 0.25s; }
+@media (prefers-reduced-motion: reduce) { #switching, .switching #switching { transition: none; } }
+/* Browsers with cross-document view transitions also cross-fade from one app's page to the next. */
+@media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
