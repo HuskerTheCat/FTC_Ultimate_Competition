@@ -79,8 +79,13 @@ a { color: var(--accent); }
 /* The home page's cube opens the app switcher: Inventory, Competition and Design, each with its own cube. */
 .center > .lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 .menuwrap { position: relative; display: flex; }
-#apps-toggle { flex: none; min-height: 0; margin: -3px; padding: 3px; background: none; border: none; }
-#apps-toggle:hover, #apps-toggle[aria-expanded="true"] { background: var(--raised); }
+/* An outlined tile with a chevron, so the cube reads as a button rather than a logo (as in Inventory). */
+#apps-toggle { flex: none; display: flex; align-items: center; gap: 4px; min-height: 0; margin: -3px; padding: 4px 8px 4px 4px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; transition: transform 0.1s; }
+#apps-toggle:hover, #apps-toggle[aria-expanded="true"] { border-color: var(--accent); }
+#apps-toggle:active { transform: scale(0.94); }
+#apps-toggle .chevron { flex: none; color: var(--muted); }
+#apps-toggle:hover .chevron, #apps-toggle[aria-expanded="true"] .chevron { color: var(--accent); }
+#apps-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 .app-icon { display: block; width: 52px; height: 52px; background: center / contain no-repeat; }
 .app-icon.inventory { background-image: url(./inventory.svg); }
 .app-icon.scout { background-image: url(../public/icon.svg); }
