@@ -90,6 +90,8 @@ a { color: var(--accent); }
 .app-icon.inventory { background-image: url(./inventory.svg); }
 .app-icon.scout { background-image: url(../public/icon.svg); }
 .app-icon.design { background-image: url(./design.svg); }
+/* The app switcher's cube (src/cube.js) turns about its middle. */
+.cube .layer { transform-origin: 256px 256px; }
 #apps-menu .app-icon { flex: none; width: 28px; height: 28px; }
 #apps-menu .menu-item, #apps-menu h3 { font-family: Orbitron, sans-serif; }
 #apps-menu .menu-item:has(.inventory) { color: #5b9bff; }
