@@ -49,11 +49,34 @@ export function robotSvg(season, pose, robot, className, label = '') {
     </g>`;
 }
 
-// The route's path: a line through its start and steps, with a numbered dot on each step.
+// The tile a point is on, as the manual names it: column letter and row number, like C3.
+export const tileName = (season, { x, y }) => {
+  const { size, tile } = season.field;
+  const index = (n) => Math.min(size / tile - 1, Math.floor(n / tile));
+  return `${COLUMNS[index(x)]}${index(y) + 1}`;
+};
+
+// The round handle in front of a robot that turns it when dragged.
+export function turnHandleSvg(season, pose, robot) {
+  const rad = (pose.h * Math.PI) / 180;
+  const reach = robot.length / 2 + 7;
+  const x = pose.x + Math.cos(rad) * reach;
+  const y = flip(season.field.size, pose.y + Math.sin(rad) * reach);
+  return `
+    <g class="turn-handle" data-turn>
+      <line x1="${pose.x}" y1="${flip(season.field.size, pose.y)}" x2="${x}" y2="${y}" />
+      <circle class="hit" cx="${x}" cy="${y}" r="7" />
+      <circle cx="${x}" cy="${y}" r="3" />
+    </g>`;
+}
+
+// The route's path: a line through its start and steps, with a numbered dot on each step. Each dot has a wider
+// invisible ring so a finger can grab it.
 export function pathSvg(season, route, className, selected = -1) {
   const { size } = season.field;
   const dots = route.steps.map((s, i) => `
     <g class="dot${i === selected ? ' selected' : ''}" data-step="${i}">
+      <circle class="hit" cx="${s.x}" cy="${flip(size, s.y)}" r="6.5" />
       <circle cx="${s.x}" cy="${flip(size, s.y)}" r="3.2" />
       <text x="${s.x}" y="${flip(size, s.y) + 1.2}">${i + 1}</text>
     </g>`).join('');

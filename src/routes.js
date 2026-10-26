@@ -1,12 +1,12 @@
 // The Routes tab: the team's routes, the editor, the player that runs routes together, and sharing by QR code.
 import QRCode from 'qrcode';
 import season from './seasons/2027.js';
-import { fieldSvg, robotSvg, pathSvg, fieldPoint } from './field.js';
+import { fieldSvg, robotSvg, pathSvg, turnHandleSvg, fieldPoint, tileName } from './field.js';
 import {
   DEFAULT_ROBOT, MAX_STEPS, ACTION_SECONDS, timeline, poseAt, routePoints, startProblem, hiveCrossing, collisions, encodeRoute,
 } from './route.js';
 import { scanCode } from './scanner.js';
-import { esc, confirmDialog, ICON_PLAY } from './ui.js';
+import { esc, confirmDialog, icon, ICON_PLAY } from './ui.js';
 import { wireNumpads } from './numpad.js';
 
 const PERIODS = { auto: 'Auto', teleop: 'Teleop' };
@@ -91,135 +91,249 @@ function newRoute() {
 
 // ---------- editor ----------
 
+const ICON_UNDO = icon('<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>');
+const ICON_SHARE = icon('<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2M20 14v6h-4M17 19h-1"/>');
+// The four ways the field's walls face, as headings (0 is toward the blue side, 90 away from the audience).
+const FACINGS = [{ h: 90, arrow: '↑', name: 'up' }, { h: 0, arrow: '→', name: 'right' }, { h: -90, arrow: '↓', name: 'down' }, { h: 180, arrow: '←', name: 'left' }];
+const ARROWS = { 90: '↑', 0: '→', '-90': '↓', 180: '←' };
+const WAIT_STEP = 0.5;
+const MAX_WAIT = 30;
+// What undo puts back. The name and team number are typed, so the browser's own undo covers them.
+const shape = ({ alliance, phase, robot, start, steps }) => JSON.stringify({ alliance, phase, robot, start, steps });
+// Headings stay above -180 and up to 180, in 15° turns when dragged.
+const normal = (h) => 180 - ((((180 - h) % 360) + 360) % 360);
+const facingText = (h) => `${ARROWS[normal(h)] ?? ''} ${Math.round(normal(h))}°`.trim();
+
 // `route` is a copy, so nothing changes until Save. `selected` is -1 for the start, or a step's index. `saved` is the
 // route as last saved, so leaving with unsaved changes can ask first.
 function openEditor(route, saved = JSON.stringify(routeData(route))) {
   let selected = route.steps.length - 1;
-  let dragging = false;
+  // What a pointer on the field is doing: null, 'move' (the selected start or step) or 'turn' (its handle).
+  let drag = null;
+  const history = [];
+  const remember = () => history.push(shape(route));
   scrollTo(0, 0);
   ui.page.innerHTML = `
-    <div class="row"><button id="back" class="link">‹ Routes</button></div>
-    <input id="route-name" maxlength="100" placeholder="Route name, e.g. Left side 3 tips" value="${esc(route.name)}" aria-label="Route name" />
-    <div class="row editor-options">
-      <div class="segmented" role="group" aria-label="Alliance">${Object.entries(ALLIANCES).map(([id, label]) =>
-        `<button type="button" data-alliance="${id}" class="${id}">${label}</button>`).join('')}</div>
-      <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
-        `<button type="button" data-phase="${id}">${label}</button>`).join('')}</div>
-      <input id="route-team" data-numpad="Team number" pattern="[0-9]*" maxlength="6" placeholder="Team #" value="${esc(route.team ?? '')}" aria-label="Team number" />
-      <button id="robot" class="secondary">Robot</button>
+    <div class="row editor-top">
+      <button id="back" class="link">‹ Routes</button>
+      <div class="row">
+        <button id="undo" class="icon" aria-label="Undo" title="Undo" disabled>${ICON_UNDO}</button>
+        <button id="play" class="icon" aria-label="Play" title="Play">${ICON_PLAY}</button>
+        <button id="share" class="icon" aria-label="Share" title="Share">${ICON_SHARE}</button>
+        <button id="save">Save</button>
+      </div>
     </div>
-    <div id="field" class="field-wrap"></div>
-    <p id="route-info" class="muted small"></p>
-    <p id="route-problem" class="error" hidden></p>
-    <div id="selection" class="card"></div>
-    <div class="row">
-      <button id="save">Save</button>
-      <button id="play" class="secondary">Play</button>
-      <button id="share" class="secondary">Share</button>
-      ${route.id ? '<button id="delete" class="danger">Delete</button>' : ''}
+    <div class="editor">
+      <div class="editor-head">
+        <input id="route-name" maxlength="100" placeholder="Route name, e.g. Left side 3 tips" value="${esc(route.name)}" aria-label="Route name" />
+        <div class="row editor-options">
+          <div class="segmented" role="group" aria-label="Alliance">${Object.entries(ALLIANCES).map(([id, label]) =>
+            `<button type="button" data-alliance="${id}" class="${id}">${label}</button>`).join('')}</div>
+          <div class="segmented" role="group" aria-label="Period">${Object.entries(PERIODS).map(([id, label]) =>
+            `<button type="button" data-phase="${id}">${label}</button>`).join('')}</div>
+          <input id="route-team" data-numpad="Team number" pattern="[0-9]*" maxlength="6" placeholder="Team #" value="${esc(route.team ?? '')}" aria-label="Team number" />
+          <button id="robot" class="secondary robot-button"></button>
+        </div>
+      </div>
+      <div class="editor-field">
+        <div id="totals" class="totals"></div>
+        <p id="route-problem" class="error" hidden></p>
+        <div id="field" class="field-wrap"></div>
+        <p id="hint" class="muted small"></p>
+        <ul class="legend muted small">
+          <li><i class="hive"></i>Hive</li><li><i class="zone"></i>Loading zone</li><li><i class="garden"></i>Garden</li>
+          <li><i class="flower"></i>Flower</li><li><i class="middle"></i>Middle line</li>
+        </ul>
+      </div>
+      <div class="editor-side">
+        <ol id="steps" class="step-list"></ol>
+        ${route.id ? '<button id="delete" class="danger">Delete route</button>' : ''}
+      </div>
     </div>`;
 
   const fieldBox = ui.page.querySelector('#field');
+  const stepList = ui.page.querySelector('#steps');
   const poseOf = (i) => (i < 0 ? route.start : route.steps[i]);
+  const usable = () => season.actions.filter((a) => a.points[route.phase] !== null);
+  const actionOf = (step) => season.actions.find((a) => a.id === step.action);
 
-  function draw() {
+  function drawField() {
     const pose = poseOf(selected);
     fieldBox.innerHTML = fieldSvg(season, `
       ${pathSvg(season, route, route.alliance, selected)}
       ${robotSvg(season, route.start, route.robot, `${route.alliance} start${selected < 0 ? ' selected' : ''}`, esc(route.team ?? ''))}
-      ${selected >= 0 ? robotSvg(season, pose, route.robot, `${route.alliance} ghost`) : ''}`);
-    const { duration } = timeline(route);
+      ${selected >= 0 ? robotSvg(season, pose, route.robot, `${route.alliance} ghost`) : ''}
+      ${turnHandleSvg(season, pose, route.robot)}`);
+  }
+
+  function drawTotals(duration) {
     const limit = season.periods[route.phase];
-    ui.page.querySelector('#route-info').textContent =
-      `${route.steps.length} steps · ${routePoints(route, season)} points · ${seconds(duration)} of ${limit} s. Tap the field to add a step, drag to move.`;
+    ui.page.querySelector('#totals').innerHTML = `
+      <div><b>${routePoints(route, season)}</b><span>points</span></div>
+      <div class="time${duration > limit ? ' over' : ''}">
+        <b>${seconds(duration)}</b><span>of ${limit} s ${PERIODS[route.phase].toLowerCase()}</span>
+        <span class="bar"><i style="width: ${Math.min(100, (duration / limit) * 100)}%"></i></span>
+      </div>
+      <div><b>${route.steps.length}</b><span>steps</span></div>`;
+    ui.page.querySelector('#hint').textContent = route.steps.length
+      ? 'Tap the field to add a step. Drag a dot to move it, or the round handle to turn the robot.'
+      : 'Drag the robot to where it starts, then tap the field to add the first step.';
     const problem = routeProblem(route, duration);
     const box = ui.page.querySelector('#route-problem');
     box.hidden = !problem;
     box.textContent = problem ?? '';
   }
 
-  function drawSelection() {
-    const pose = poseOf(selected);
-    const step = selected >= 0 ? route.steps[selected] : null;
-    const actions = season.actions.filter((a) => a.points[route.phase] !== null);
-    ui.page.querySelector('#selection').innerHTML = `
-      <h2>${step ? `Step ${selected + 1}` : 'Start'}</h2>
-      <label>Facing <output id="heading-value">${Math.round(pose.h)}°</output>
-        <input id="heading" type="range" min="-180" max="180" step="5" value="${Math.round(pose.h)}" />
-      </label>
-      ${step ? `
-        <label>Action
-          <select id="action">
-            <option value="">None</option>
-            ${actions.map((a) => `<option value="${a.id}" ${a.id === step.action ? 'selected' : ''}>${esc(a.label)} (${a.points[route.phase]})</option>`).join('')}
-          </select>
-        </label>
-        <label>Extra wait (seconds)<input id="wait" type="number" min="0" max="30" step="0.5" value="${step.wait}" /></label>
-        <div class="row">
-          <button type="button" id="prev-step" class="secondary" ${selected === 0 ? 'disabled' : ''}>‹</button>
-          <button type="button" id="next-step" class="secondary" ${selected === route.steps.length - 1 ? 'disabled' : ''}>›</button>
-          <button type="button" id="delete-step" class="danger">Delete step</button>
-        </div>` : '<p class="muted small">Drag the robot to where it starts the match.</p>'}`;
-    const heading = ui.page.querySelector('#heading');
-    heading.oninput = () => {
-      pose.h = Number(heading.value);
-      ui.page.querySelector('#heading-value').textContent = `${pose.h}°`;
-      draw();
-    };
-    if (!step) return;
-    ui.page.querySelector('#action').onchange = (e) => { step.action = e.target.value || null; draw(); };
-    ui.page.querySelector('#wait').oninput = (e) => { step.wait = Math.max(0, Number(e.target.value) || 0); draw(); };
-    ui.page.querySelector('#prev-step').onclick = () => select(selected - 1);
-    ui.page.querySelector('#next-step').onclick = () => select(selected + 1);
-    ui.page.querySelector('#delete-step').onclick = () => {
-      route.steps.splice(selected, 1);
-      select(selected - 1);
-    };
+  // One row per step, the selected one open with its settings.
+  function drawSteps(ends) {
+    const rows = [-1, ...route.steps.keys()].map((i) => {
+      const pose = poseOf(i);
+      const step = i >= 0 ? route.steps[i] : null;
+      const action = step && actionOf(step);
+      const title = !step ? 'Start' : action ? action.label : 'Drive';
+      const detail = [tileName(season, pose), facingText(pose.h), step ? `done at ${seconds(ends[i])}` : ''].filter(Boolean).join(' · ');
+      return `
+        <li class="step-row${i === selected ? ' selected' : ''}">
+          <button type="button" class="step-head" data-select="${i}" data-key="select-${i}" aria-expanded="${i === selected}">
+            <span class="step-num ${route.alliance}">${step ? i + 1 : 'S'}</span>
+            <span class="step-title"><strong>${esc(title)}</strong><span class="muted small">${detail}</span></span>
+            ${action ? `<span class="step-points">+${action.points[route.phase]}</span>` : ''}
+          </button>
+          ${i === selected ? stepSettings(pose, step) : ''}
+        </li>`;
+    });
+    stepList.innerHTML = rows.join('');
+  }
+
+  function stepSettings(pose, step) {
+    return `
+      <div class="step-edit">
+        <div class="setting">
+          <span class="setting-label">Facing <output>${facingText(pose.h)}</output></span>
+          <div class="facing">
+            ${FACINGS.map((f) => `<button type="button" class="secondary" data-face="${f.h}" data-key="face-${f.h}" aria-label="Face ${f.name}" aria-pressed="${normal(pose.h) === normal(f.h)}">${f.arrow}</button>`).join('')}
+            <button type="button" class="secondary" data-turn-by="15" data-key="turn-left" aria-label="Turn left 15°">⟲15°</button>
+            <button type="button" class="secondary" data-turn-by="-15" data-key="turn-right" aria-label="Turn right 15°">⟳15°</button>
+          </div>
+        </div>
+        ${step ? `
+          <div class="setting">
+            <span class="setting-label">Action</span>
+            <div class="choices">
+              <button type="button" class="secondary" data-action="" data-key="action-none" aria-pressed="${!step.action}">None</button>
+              ${usable().map((a) => `<button type="button" class="secondary" data-action="${a.id}" data-key="action-${a.id}" aria-pressed="${a.id === step.action}">
+                ${esc(a.label)} <span>+${a.points[route.phase]}</span></button>`).join('')}
+            </div>
+          </div>
+          <div class="setting">
+            <span class="setting-label">Extra wait</span>
+            <div class="stepper">
+              <button type="button" class="secondary" data-wait="-1" data-key="wait-less" aria-label="Wait less" ${step.wait <= 0 ? 'disabled' : ''}>−</button>
+              <output>${seconds(step.wait)}</output>
+              <button type="button" class="secondary" data-wait="1" data-key="wait-more" aria-label="Wait more" ${step.wait >= MAX_WAIT ? 'disabled' : ''}>+</button>
+            </div>
+          </div>
+          <button type="button" class="danger" data-delete-step data-key="delete-step">Delete step ${selected + 1}</button>`
+        : '<p class="muted small">Drag the robot on the field to where it starts the match.</p>'}
+      </div>`;
+  }
+
+  // Redraws everything that shows the route, keeping the keyboard on the button it was on.
+  function draw() {
+    const key = document.activeElement?.dataset.key;
+    const { ends, duration } = timeline(route);
+    drawField();
+    drawTotals(duration);
+    drawSteps(ends);
+    if (key) ui.page.querySelector(`[data-key="${key}"]`)?.focus();
+    ui.page.querySelector('#undo').disabled = !history.length;
+    ui.page.querySelector('#robot').innerHTML = `Robot <span>${route.robot.width} × ${route.robot.length} in · ${route.robot.speed} in/s</span>`;
+    options.querySelectorAll('[data-alliance]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.alliance === route.alliance)));
+    options.querySelectorAll('[data-phase]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.phase === route.phase)));
   }
 
   function select(i) {
     selected = i;
     draw();
-    drawSelection();
   }
 
-  function moveTo(point) {
-    const pose = poseOf(selected);
-    pose.x = round(clamp(point.x, season.field.size));
-    pose.y = round(clamp(point.y, season.field.size));
-    draw();
-  }
-
-  // Tapping the start robot or a step's dot picks it up; tapping anywhere else on the field adds a step there,
-  // facing the way the robot already faces. Either way, dragging moves it.
+  // Tapping the start robot or a step's dot picks it up, its handle turns it; tapping anywhere else on the field adds a
+  // step there, facing the way the robot already faces. Dragging moves or turns until the finger lifts.
   fieldBox.onpointerdown = (e) => {
     const svg = fieldBox.querySelector('svg');
     const dot = e.target.closest('[data-step]');
-    if (dot) select(Number(dot.dataset.step));
-    else if (e.target.closest('.robot.start')) select(-1);
-    else {
-      if (route.steps.length >= MAX_STEPS) return ui.showError(new Error(`A route can have up to ${MAX_STEPS} steps.`));
+    remember();
+    if (e.target.closest('[data-turn]')) drag = 'turn';
+    else if (dot) {
+      selected = Number(dot.dataset.step);
+      drag = 'move';
+    } else if (e.target.closest('.robot.start')) {
+      selected = -1;
+      drag = 'move';
+    } else {
+      if (route.steps.length >= MAX_STEPS) {
+        history.pop();
+        return ui.showError(new Error(`A route can have up to ${MAX_STEPS} steps.`));
+      }
       const point = fieldPoint(svg, e, season);
       const last = route.steps.at(-1) ?? route.start;
-      route.steps.push({ x: round(point.x), y: round(point.y), h: last.h, action: null, wait: 0 });
-      select(route.steps.length - 1);
+      route.steps.push({ x: round(clamp(point.x, season.field.size)), y: round(clamp(point.y, season.field.size)), h: last.h, action: null, wait: 0 });
+      selected = route.steps.length - 1;
+      drag = 'move';
     }
-    dragging = true;
+    draw();
     fieldBox.setPointerCapture(e.pointerId);
   };
   fieldBox.onpointermove = (e) => {
-    if (dragging) moveTo(fieldPoint(fieldBox.querySelector('svg'), e, season));
+    if (!drag) return;
+    const point = fieldPoint(fieldBox.querySelector('svg'), e, season);
+    const pose = poseOf(selected);
+    if (drag === 'turn') {
+      pose.h = normal(Math.round((Math.atan2(point.y - pose.y, point.x - pose.x) * 180) / Math.PI / 15) * 15);
+    } else {
+      pose.x = round(clamp(point.x, season.field.size));
+      pose.y = round(clamp(point.y, season.field.size));
+    }
+    draw();
   };
-  fieldBox.onpointerup = () => { dragging = false; };
+  fieldBox.onpointerup = () => {
+    // A tap that changed nothing leaves nothing to undo.
+    if (history.at(-1) === shape(route)) history.pop();
+    drag = null;
+    draw();
+  };
   fieldBox.onpointercancel = fieldBox.onpointerup;
 
-  const options = ui.page.querySelector('.editor-options');
-  const markOptions = () => {
-    options.querySelectorAll('[data-alliance]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.alliance === route.alliance)));
-    options.querySelectorAll('[data-phase]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.phase === route.phase)));
+  stepList.onclick = (e) => {
+    const button = e.target.closest('button');
+    if (!button) return;
+    const { select: index, face, turnBy, action, wait } = button.dataset;
+    if (index !== undefined) return select(Number(index));
+    remember();
+    const pose = poseOf(selected);
+    const step = route.steps[selected];
+    if (face !== undefined) pose.h = Number(face);
+    if (turnBy !== undefined) pose.h = normal(pose.h + Number(turnBy));
+    if (action !== undefined) step.action = action || null;
+    if (wait !== undefined) step.wait = Math.min(MAX_WAIT, Math.max(0, step.wait + Number(wait) * WAIT_STEP));
+    if (button.hasAttribute('data-delete-step')) {
+      route.steps.splice(selected, 1);
+      selected = Math.min(selected, route.steps.length - 1);
+    }
+    draw();
   };
+
+  ui.page.querySelector('#undo').onclick = () => {
+    Object.assign(route, JSON.parse(history.pop()));
+    selected = Math.min(selected, route.steps.length - 1);
+    draw();
+  };
+
+  const options = ui.page.querySelector('.editor-options');
   options.onclick = (e) => {
     const { alliance, phase } = e.target.dataset;
+    if (!alliance && !phase) return;
+    remember();
     // A new alliance moves an untouched start to that alliance's wall.
     if (alliance && alliance !== route.alliance) {
       route.alliance = alliance;
@@ -229,12 +343,11 @@ function openEditor(route, saved = JSON.stringify(routeData(route))) {
       route.phase = phase;
       // Actions that can't score in the new period are taken off their steps.
       for (const step of route.steps) {
-        if (season.actions.find((a) => a.id === step.action)?.points[phase] === null) step.action = null;
+        if (actionOf(step)?.points[phase] === null) step.action = null;
       }
     }
-    markOptions();
+    if (history.at(-1) === shape(route)) history.pop();
     draw();
-    drawSelection();
   };
   ui.page.querySelector('#route-name').oninput = (e) => { route.name = e.target.value; };
   wireNumpads(ui.page);
@@ -242,7 +355,13 @@ function openEditor(route, saved = JSON.stringify(routeData(route))) {
     route.team = Number(e.target.value) || null;
     draw();
   };
-  ui.page.querySelector('#robot').onclick = () => openRobotDialog(route, draw);
+  ui.page.querySelector('#robot').onclick = () => {
+    const before = shape(route);
+    openRobotDialog(route, () => {
+      history.push(before);
+      draw();
+    });
+  };
   ui.page.querySelector('#back').onclick = () => {
     if (JSON.stringify(routeData(route)) === saved) return renderRouteList();
     confirmDialog(ui.dialog, { title: 'Leave without saving?', text: 'Your changes to this route will be lost.', action: 'Leave' }, renderRouteList);
@@ -263,19 +382,18 @@ function openEditor(route, saved = JSON.stringify(routeData(route))) {
     });
   });
 
-  markOptions();
   draw();
-  drawSelection();
 }
 
 // The first thing wrong with the route, or null.
 function routeProblem(route, duration) {
-  const hive = hiveCrossing(route, season);
-  if (route.phase === 'auto' && startProblem(route, season)) return startProblem(route, season);
-  if (hive) return `Step ${hive.step} drives through the ${ALLIANCES[hive.alliance].toLowerCase()} hive.`;
   if (route.phase === 'auto') {
     const problem = startProblem(route, season);
     if (problem) return problem;
+  }
+  const hive = hiveCrossing(route, season);
+  if (hive) return `Step ${hive.step} drives through the ${ALLIANCES[hive.alliance].toLowerCase()} hive.`;
+  if (route.phase === 'auto') {
     const side = season.field.sides[route.alliance];
     if (route.steps.some((s) => s.x < side.x || s.x > side.x + side.width)) {
       return 'This auto route crosses into the other alliance’s side, which risks a major foul (G402).';

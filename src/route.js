@@ -15,10 +15,12 @@ const turn = (from, to) => ((((to - from) % 360) + 540) % 360) - 180;
 export const legPose = (a, b, f) => ({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, h: a.h + turn(a.h, b.h) * f });
 
 // The route as timed pieces: a move to each step, then the step's action and wait standing still.
-// Each piece is { from, to, start, end }, the robot standing still when from and to are the same pose.
+// Each piece is { from, to, start, end }, the robot standing still when from and to are the same pose. `ends` is when
+// each step is done.
 export function timeline(route) {
   const { speed, turnSpeed } = route.robot;
   const pieces = [];
+  const ends = [];
   let pose = route.start;
   let time = 0;
   for (const step of route.steps) {
@@ -28,9 +30,10 @@ export function timeline(route) {
     const still = (step.action ? ACTION_SECONDS : 0) + step.wait;
     if (still) pieces.push({ from: step, to: step, start: time, end: time + still });
     time += still;
+    ends.push(time);
     pose = step;
   }
-  return { pieces, duration: time };
+  return { pieces, ends, duration: time };
 }
 
 // Where the robot is at a time; it waits at the end once the route is done.
