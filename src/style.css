@@ -567,3 +567,14 @@ dialog section > h3 { margin: 0 0 4px; }
 @media (prefers-reduced-motion: reduce) { #switching, .switching #switching { transition: none; } }
 /* Browsers with cross-document view transitions also cross-fade from one app's page to the next. */
 @media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
+
+/* Find tab: the places to check in at, and the note of who asked where you are. */
+.places { display: flex; flex-wrap: wrap; gap: 8px; }
+.places button[aria-pressed="true"] { background: rgb(255 165 61 / 0.15); color: var(--accent); border-color: var(--accent); }
+.asked { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgb(255 165 61 / 0.12); border: 1px solid var(--accent); color: var(--text); }
+.asked[hidden] { display: none; }
+.whereabouts { display: flex; flex-direction: column; gap: 2px; }
+.asked-line { color: var(--accent); }
+/* On every other tab while a teammate is waiting for this member's answer. */
+.ping-banner { width: 100%; margin-bottom: 16px; background: var(--accent-gradient); color: var(--accent-text); white-space: normal; }
+.ping-banner[hidden] { display: none; }

@@ -17,6 +17,7 @@ import { startRoutes, renderRouteList, showRouteList, openSharedRoute, scanRoute
 import { startScouting, renderScoutList, showMatchList } from './scouting.js';
 import { startTeams, renderTeamList, showTeamList } from './teams.js';
 import { startPits } from './pits.js';
+import { startFind, renderFind, showFind, showPingBanner } from './find.js';
 import { openApp, prefetchApps } from './switching.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Competition/';
@@ -43,18 +44,19 @@ setTheme(localStorage.getItem(THEME_KEY) ?? 'dark');
 
 const ICON_MENU = icon('<path d="M4 6h16M4 12h16M4 18h16"/>');
 
-// The app's three parts, in tab order.
+// The app's four parts, in tab order.
 const TABS = [
   { id: 'routes', label: 'Routes', icon: icon('<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h6"/>') },
   { id: 'scout', label: 'Scout', icon: icon('<circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>') },
   { id: 'teams', label: 'Teams', icon: icon('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/>') },
+  { id: 'find', label: 'Find', icon: icon('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>') },
 ];
 // The tab open last on this device.
 const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], matches: [], alliances: [], buttons: [], pits: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], alliances: [], buttons: [], pits: [], checkIns: [], pings: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -425,6 +427,7 @@ function renderApp() {
     <nav class="tabs" aria-label="Sections">
       ${TABS.map((tab) => `<button data-tab="${tab.id}">${tab.icon}<span>${tab.label}</span></button>`).join('')}
     </nav>
+    <button id="ping-banner" class="ping-banner" hidden></button>
     <p id="error" class="error" role="alert" hidden></p>
     <main id="page" class="page"></main>
     <dialog id="dialog"></dialog>`;
@@ -446,6 +449,7 @@ function renderApp() {
     e.currentTarget.setAttribute('aria-checked', String(theme === 'light'));
   };
   app.querySelector('#signout').onclick = () => fb.logOut();
+  app.querySelector('#ping-banner').onclick = () => tabContext.showTab('find');
   app.querySelector('.tabs').onclick = (e) => {
     const button = e.target.closest('[data-tab]');
     if (!button) return;
@@ -462,7 +466,18 @@ function renderTab() {
     if (button.dataset.tab === state.tab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  ({ routes: renderRouteList, scout: renderScoutList, teams: renderTeamList })[state.tab]();
+  ({ routes: renderRouteList, scout: renderScoutList, teams: renderTeamList, find: renderFind })[state.tab]();
+  updatePingBanner();
+}
+
+// Redraws what shows teammates' check-ins and questions: the Find tab when it's open, and the banner on the others.
+function updatePingBanner() {
+  showPingBanner(app.querySelector('#ping-banner'), state.tab === 'find');
+}
+function showWhereabouts() {
+  if (!app.querySelector('#ping-banner')) return;
+  updatePingBanner();
+  if (app.querySelector('#teammate-list')) showFind();
 }
 
 // Opens a shared route's link in the Routes tab.
@@ -616,7 +631,18 @@ async function start() {
       fb.logOut();
     };
     const stops = [
-      fb.watchMembers((members) => { state.members = members; }, onError),
+      fb.watchMembers((members) => {
+        state.members = members;
+        showWhereabouts();
+      }, onError),
+      fb.watchCheckIns((checkIns) => {
+        state.checkIns = checkIns;
+        showWhereabouts();
+      }, onError),
+      fb.watchPings((pings) => {
+        state.pings = pings;
+        showWhereabouts();
+      }, onError),
       fb.watchRoutes((routes) => {
         state.routes = routes;
         // The list follows teammates' changes; an open editor or player is left alone.
@@ -674,5 +700,6 @@ startRoutes(tabContext);
 startScouting(tabContext);
 startTeams(tabContext);
 startPits(tabContext);
+startFind(tabContext);
 startStatusBanners();
 start();

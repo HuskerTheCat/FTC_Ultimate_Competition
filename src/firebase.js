@@ -5,7 +5,7 @@ import {
 } from 'firebase/auth';
 import {
   initializeFirestore, connectFirestoreEmulator, persistentLocalCache, persistentMultipleTabManager, terminate, clearIndexedDbPersistence,
-  doc, collection, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp,
+  doc, collection, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 
 let auth;
@@ -186,4 +186,28 @@ export const watchPits = (callback, onError) => onSnapshot(collection(db, 'scout
 // A team's pit interview, kept under its team number so the latest one replaces the last.
 export function savePit(pit, onError) {
   setDoc(doc(db, 'scoutPits', String(pit.team)), { ...pit, by: auth.currentUser.uid, updatedAt: serverTimestamp() }).catch(onError);
+}
+
+// ---------- find my team ----------
+
+// Each member's latest check-in and the latest question to each member, under their uid. `at` is in milliseconds, the
+// server's time once written (estimated until then).
+const timedListOf = (snap) => snap.docs.map((d) => {
+  const data = d.data({ serverTimestamps: 'estimate' });
+  return { ...data, uid: d.id, at: data.at.toMillis() };
+});
+
+export const watchCheckIns = (callback, onError) => onSnapshot(collection(db, 'scoutCheckIns'), (snap) => callback(timedListOf(snap)), onError);
+
+export function checkIn({ place, note }, onError) {
+  setDoc(doc(db, 'scoutCheckIns', auth.currentUser.uid), { place, note, at: serverTimestamp() }).catch(onError);
+}
+
+export const watchPings = (callback, onError) => onSnapshot(collection(db, 'scoutPings'), (snap) => callback(timedListOf(snap)), onError);
+
+// Asks teammates where they are: one write per teammate, replacing the last question to them.
+export function ping(uids, onError) {
+  const batch = writeBatch(db);
+  for (const uid of uids) batch.set(doc(db, 'scoutPings', uid), { from: auth.currentUser.uid, at: serverTimestamp() });
+  batch.commit().catch(onError);
 }

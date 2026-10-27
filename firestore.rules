@@ -10,7 +10,7 @@ service cloud.firestore {
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
     function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 6; }
+    function scoutRulesVersion() { return 7; }
 
     function signedIn() {
       return request.auth != null;
@@ -335,6 +335,27 @@ service cloud.firestore {
         && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 30
         && request.resource.data.points is int && request.resource.data.points >= -100 && request.resource.data.points <= 100;
       allow delete: if isMember();
+    }
+
+    // Where each member is at the competition (Find tab), under their uid: a place, a message or both. Only they can change it.
+    match /scoutCheckIns/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['place', 'note', 'at'])
+        && request.resource.data.place in ['', 'pits', 'stands', 'queue', 'field', 'practice']
+        && request.resource.data.note is string && request.resource.data.note.size() <= 100
+        && (request.resource.data.place != '' || request.resource.data.note.size() > 0)
+        && request.resource.data.at == request.time;
+    }
+
+    // The latest question to a member, under their uid, asking where they are. Their next check-in answers it.
+    match /scoutPings/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && uid != request.auth.uid
+        && exists(/databases/$(database)/documents/members/$(uid))
+        && request.resource.data.keys().hasOnly(['from', 'at'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.at == request.time;
     }
 
     // The team's robot (size in inches, speeds in in/s and °/s), copied into each new route.

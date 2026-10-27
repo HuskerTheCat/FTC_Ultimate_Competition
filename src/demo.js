@@ -6,6 +6,7 @@ const TEAM = { name: '12345 Example Team', secret: 'demoSecret', owner: USER.uid
 const members = [
   { uid: USER.uid, email: USER.email, name: 'Husker' },
   { uid: 'gabby', email: 'gabby@example.com', name: 'Gabby' },
+  { uid: 'grace', email: 'grace@example.com', name: 'Grace' },
 ];
 const memberListeners = new Set();
 
@@ -179,4 +180,39 @@ export function saveButton(button) {
 export async function deleteButton(id) {
   buttons.delete(id);
   buttonListeners.forEach((listener) => listener());
+}
+
+// Gabby is in the pits and Grace in the stands; Grace has asked the demo member where they are.
+const minutesAgo = (minutes) => Date.now() - minutes * 60000;
+const checkIns = new Map([
+  ['gabby', { place: 'pits', note: 'Fixing the arm', at: minutesAgo(4) }],
+  ['grace', { place: 'stands', note: '', at: minutesAgo(12) }],
+]);
+const pings = new Map([['demo', { from: 'grace', at: minutesAgo(1) }]]);
+const checkInListeners = new Set();
+const pingListeners = new Set();
+const watchTimed = (map, listeners) => (callback) => {
+  const listener = () => callback([...map].map(([uid, item]) => ({ ...item, uid })));
+  listeners.add(listener);
+  listener();
+  return () => listeners.delete(listener);
+};
+export const watchCheckIns = watchTimed(checkIns, checkInListeners);
+export const watchPings = watchTimed(pings, pingListeners);
+
+function setCheckIn(uid, checkIn) {
+  checkIns.set(uid, { ...checkIn, at: Date.now() });
+  checkInListeners.forEach((listener) => listener());
+}
+
+export const checkIn = (spot) => setCheckIn(USER.uid, spot);
+
+// Asked teammates answer a few seconds later, so the demo shows the whole round trip.
+const ANSWERS = { gabby: { place: 'queue', note: 'Match 12 next' }, grace: { place: 'field', note: '' } };
+export function ping(uids) {
+  for (const uid of uids) {
+    pings.set(uid, { from: USER.uid, at: Date.now() });
+    setTimeout(() => setCheckIn(uid, ANSWERS[uid]), 4000);
+  }
+  pingListeners.forEach((listener) => listener());
 }
