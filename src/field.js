@@ -57,7 +57,7 @@ export function fieldSvg(season, content) {
   }
   const area = (side, x) => rect(size, { x, y: allianceAreas[side].y, width: 4, height: allianceAreas[side].height }, `alliance-area ${side}`);
   return `
-    <svg class="field" viewBox="-14 -3 ${size + 21} ${size + 13}" role="img" aria-label="${season.name} field">
+    <svg class="field" viewBox="-14 -5 ${size + 21} ${size + 15}" role="img" aria-label="${season.name} field">
       ${area('red', -5.5)}${area('blue', size + 1.5)}
       <rect class="floor" x="0" y="0" width="${size}" height="${size}" />
       <g class="tiles">${tiles.join('')}</g>

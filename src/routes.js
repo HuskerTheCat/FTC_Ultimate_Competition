@@ -137,8 +137,8 @@ function openEditor(route, saved = JSON.stringify(routeData(route))) {
       </div>
       <div class="editor-field">
         <div id="totals" class="totals"></div>
-        <p id="route-problem" class="error" hidden></p>
         <div id="field" class="field-wrap"></div>
+        <p id="route-problem" class="error" hidden></p>
         <p id="hint" class="muted small"></p>
         <ul class="legend muted small">
           <li><svg class="hive" viewBox="0 0 12 12" aria-hidden="true"><polygon points="1,11 11,11 11,5 6,1 1,5" /></svg>Hive</li><li><i class="zone"></i>Loading zone</li><li><i class="garden"></i>Garden</li>
