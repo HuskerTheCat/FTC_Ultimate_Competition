@@ -351,8 +351,9 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .status-banner.demo { background: var(--surface); color: var(--accent); border-bottom: 1px solid var(--border); }
 
 /* Routes: alliance colors, the list, the field, the editor and the player. */
-:root { --red: #ff5d6c; --blue: #4d8dff; --field-floor: #1a2036; --field-line: #2c3554; }
-:root[data-theme="light"] { --red: #d0263f; --blue: #2f5bd6; --field-floor: #e6eaf2; --field-line: #c3cbdc; }
+/* The field's gray foam tiles, as on the real field, darker in dark mode. */
+:root { --red: #ff5d6c; --blue: #4d8dff; --field-floor: #2a2e37; --field-tile: #454a55; --field-wall: #c4cad6; }
+:root[data-theme="light"] { --red: #d0263f; --blue: #2f5bd6; --field-floor: #9da3ae; --field-tile: #c9cdd4; --field-wall: #5d6472; }
 .chip { display: inline-block; min-width: 56px; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-align: center; color: #fff; }
 .chip.red { background: var(--red); }
 .chip.blue { background: var(--blue); }
@@ -364,17 +365,22 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .field-wrap { width: 100%; max-width: 620px; align-self: center; touch-action: none; user-select: none; }
 .field { display: block; width: 100%; height: auto; }
 .field .floor { fill: var(--field-floor); }
-.field .grid line { stroke: var(--field-line); stroke-width: 0.4; }
-.field .middle { stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 2 2; }
-.field .wall { fill: none; stroke: var(--muted); stroke-width: 1; }
+.field .tiles rect { fill: var(--field-tile); }
+.field .middle { stroke: var(--text); stroke-width: 0.4; stroke-dasharray: 2 2; opacity: 0.5; }
+.field .wall { fill: none; stroke: var(--field-wall); stroke-width: 1.2; }
 .field .labels text { fill: var(--muted); font: 600 5px Saira, sans-serif; text-anchor: middle; }
-.field .zone, .field .garden { stroke: none; opacity: 0.35; }
-.field .hive { fill: none; stroke-width: 1; }
-.field .red:is(.zone, .garden) { fill: var(--red); }
-.field .blue:is(.zone, .garden) { fill: var(--blue); }
-.field .hive.red { stroke: var(--red); }
-.field .hive.blue { stroke: var(--blue); }
-.field .flower { fill: #f2c94c; }
+.field .alliance-area { opacity: 0.8; }
+.field .zone { fill-opacity: 0.4; stroke-width: 0.8; }
+.field .garden { stroke: none; }
+.field .red:is(.zone, .garden, .alliance-area) { fill: var(--red); stroke: var(--red); }
+.field .blue:is(.zone, .garden, .alliance-area) { fill: var(--blue); stroke: var(--blue); }
+.field .hive polygon { fill: rgb(255 255 255 / 0.12); stroke-width: 1.2; stroke-linejoin: round; }
+.field .hive polyline { fill: none; stroke-width: 0.8; }
+.field .hive.red :is(polygon, polyline) { stroke: var(--red); }
+.field .hive.blue :is(polygon, polyline) { stroke: var(--blue); }
+.field .hive-frame { stroke: var(--field-wall); stroke-width: 1; }
+.field .beam { fill: #f2d16b; }
+.field .flower { fill: #f2c94c; stroke: #8a6d12; stroke-width: 0.6; }
 .robot polygon { stroke-width: 1; fill-opacity: 0.35; }
 .robot line { stroke-width: 1.2; stroke: var(--text); }
 .robot text { fill: var(--text); font: 700 4.5px Saira, sans-serif; text-anchor: middle; pointer-events: none; }
@@ -424,9 +430,10 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
-.legend .hive { border: 1.5px solid var(--red); border-right-color: var(--blue); border-bottom-color: var(--blue); }
-.legend .zone { background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); opacity: 0.45; }
-.legend .garden { height: 4px; background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); opacity: 0.45; }
+.legend svg.hive { width: 12px; height: 12px; fill: none; stroke: var(--red); stroke-width: 1.5; stroke-linejoin: round; }
+.legend .zone { background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); opacity: 0.5; }
+.legend .garden { height: 4px; background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); }
+.legend .area { width: 4px; height: 14px; background: linear-gradient(var(--red) 50%, var(--blue) 50%); }
 .legend .flower { width: 10px; border-radius: 50%; background: #f2c94c; }
 .legend .middle { height: 0; border-top: 1.5px dashed var(--muted); }
 .step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

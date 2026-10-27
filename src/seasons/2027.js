@@ -44,7 +44,14 @@ export default {
     loadingZones: { red: { x: 0, y: 97, width: 11, height: 23 }, blue: { x: 133, y: 24, width: 11, height: 23 } },
     gardens: { red: { x: 0, y: 0, width: 23, height: 3 }, blue: { x: 121, y: 141, width: 23, height: 3 } },
     flowers: [{ x: 48, y: 144, r: 4 }, { x: 144, y: 96, r: 4 }, { x: 0, y: 48, r: 4 }, { x: 96, y: 0, r: 4 }],
-    hives: { red: { x: 50, y: 50, width: 20, height: 44 }, blue: { x: 74, y: 50, width: 20, height: 44 } },
+    // Each hive is two five-sided baskets, one above the other, pointing up on red and down on blue (Figure 9-2).
+    // The box is what robots can't drive through.
+    hives: {
+      red: { x: 48, y: 52, width: 22, height: 46, point: 'up' },
+      blue: { x: 74, y: 46, width: 22, height: 46, point: 'down' },
+    },
+    // Outside the left (red) and right (blue) walls, where the drivers stand.
+    allianceAreas: { red: { y: 24, height: 96 }, blue: { y: 24, height: 96 } },
     // Where a new route's robot starts: a legal spot on each alliance's wall.
     starts: { red: { x: 9, y: 72, h: 0 }, blue: { x: 135, y: 72, h: 180 } },
   },

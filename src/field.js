@@ -8,27 +8,63 @@ const points = (size, list) => list.map((p) => `${p.x},${flip(size, p.y)}`).join
 const rect = (size, { x, y, width, height }, className) =>
   `<rect class="${className}" x="${x}" y="${flip(size, y + height)}" width="${width}" height="${height}" />`;
 
-// The field with its tile grid (columns A to F, rows 1 to 6 as in the manual), zones and elements, with `content`
-// drawn on top.
+// A hive basket in a box: five sides, its point at the top or the bottom, with the inner rim drawn as a chevron.
+function basketSvg(size, { x, y, width, height }, point, className) {
+  const up = point === 'up';
+  const tip = up ? y + height : y;
+  const base = up ? y : y + height;
+  const shoulder = up ? y + height * 0.7 : y + height * 0.3;
+  const rim = up ? y + height * 0.35 : y + height * 0.65;
+  const outline = [{ x, y: base }, { x: x + width, y: base }, { x: x + width, y: shoulder }, { x: x + width / 2, y: tip }, { x, y: shoulder }];
+  const chevron = [{ x, y: rim }, { x: x + width / 2, y: rim + (tip - shoulder) }, { x: x + width, y: rim }];
+  return `<g class="${className}"><polygon points="${points(size, outline)}" /><polyline points="${points(size, chevron)}" /></g>`;
+}
+
+// A hive: its two baskets with a gap between them, held by a frame post on the outer side.
+function hiveSvg(size, hive, alliance) {
+  const gap = 10;
+  const basket = (hive.height - gap) / 2;
+  const post = alliance === 'red' ? hive.x - 1 : hive.x + hive.width + 1;
+  return `
+    <line class="hive-frame" x1="${post}" y1="${flip(size, hive.y)}" x2="${post}" y2="${flip(size, hive.y + hive.height)}" />
+    ${basketSvg(size, { ...hive, height: basket }, hive.point, `hive ${alliance}`)}
+    ${basketSvg(size, { ...hive, y: hive.y + basket + gap, height: basket }, hive.point, `hive ${alliance}`)}`;
+}
+
+// The yellow beams between the two hives, across the gaps between their baskets.
+function beamsSvg(size, { red, blue }) {
+  const from = red.x + red.width / 2;
+  const to = blue.x + blue.width / 2;
+  const middle = (Math.max(red.y, blue.y) + Math.min(red.y + red.height, blue.y + blue.height)) / 2;
+  return [middle - 3.5, middle + 1.5].map((y) =>
+    `<rect class="beam" x="${from}" y="${flip(size, y + 2)}" width="${to - from}" height="2" />`).join('');
+}
+
+// The field with its foam tiles (columns A to F, rows 1 to 6 as in the manual), zones and elements, the alliance areas
+// outside the side walls, and `content` drawn on top.
 export function fieldSvg(season, content) {
-  const { size, tile, loadingZones, gardens, flowers, hives } = season.field;
-  const lines = [];
-  for (let at = tile; at < size; at += tile) {
-    lines.push(`<line x1="${at}" y1="0" x2="${at}" y2="${size}" />`, `<line x1="0" y1="${at}" x2="${size}" y2="${at}" />`);
+  const { size, tile, loadingZones, gardens, flowers, hives, allianceAreas } = season.field;
+  const tiles = [];
+  for (let col = 0; col < size / tile; col++) {
+    for (let row = 0; row < size / tile; row++) {
+      tiles.push(`<rect x="${col * tile + 0.3}" y="${row * tile + 0.3}" width="${tile - 0.6}" height="${tile - 0.6}" rx="0.6" />`);
+    }
   }
   const labels = [];
   for (let i = 0; i < size / tile; i++) {
     labels.push(`<text x="${i * tile + tile / 2}" y="${size + 7}">${COLUMNS[i]}</text>`);
-    labels.push(`<text x="-5" y="${flip(size, i * tile + tile / 2) + 1.5}">${i + 1}</text>`);
+    labels.push(`<text x="-10" y="${flip(size, i * tile + tile / 2) + 1.5}">${i + 1}</text>`);
   }
+  const area = (side, x) => rect(size, { x, y: allianceAreas[side].y, width: 4, height: allianceAreas[side].height }, `alliance-area ${side}`);
   return `
-    <svg class="field" viewBox="-10 -3 ${size + 13} ${size + 13}" role="img" aria-label="${season.name} field">
+    <svg class="field" viewBox="-14 -3 ${size + 21} ${size + 13}" role="img" aria-label="${season.name} field">
+      ${area('red', -5.5)}${area('blue', size + 1.5)}
       <rect class="floor" x="0" y="0" width="${size}" height="${size}" />
-      <g class="grid">${lines.join('')}</g>
+      <g class="tiles">${tiles.join('')}</g>
       <line class="middle" x1="${size / 2}" y1="0" x2="${size / 2}" y2="${size}" />
       ${rect(size, loadingZones.red, 'zone red')}${rect(size, loadingZones.blue, 'zone blue')}
       ${rect(size, gardens.red, 'garden red')}${rect(size, gardens.blue, 'garden blue')}
-      ${rect(size, hives.red, 'hive red')}${rect(size, hives.blue, 'hive blue')}
+      ${beamsSvg(size, hives)}${hiveSvg(size, hives.red, 'red')}${hiveSvg(size, hives.blue, 'blue')}
       ${flowers.map((f) => `<circle class="flower" cx="${f.x}" cy="${flip(size, f.y)}" r="${f.r}" />`).join('')}
       <rect class="wall" x="0" y="0" width="${size}" height="${size}" />
       <g class="labels">${labels.join('')}</g>
