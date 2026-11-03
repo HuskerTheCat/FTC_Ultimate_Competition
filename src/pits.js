@@ -27,7 +27,7 @@ export function openPitForm(team, back) {
       </section>
       ${Object.entries(PERIODS).map(([period, label]) => `
         <section class="card">
-          <h2>${label}: how many per match?</h2>
+          <h2>${label}</h2>
           <ul class="tally-list">${season.actions.filter((a) => a.points[period] != null).map((a) => `
             <li><span>${esc(a.label)}</span><input class="claim" ${a.once ? 'type="checkbox"' : `data-numpad="${PERIODS[period]} · ${esc(a.label)}" maxlength="2" placeholder="0"`} name="${period}.${a.id}" aria-label="${PERIODS[period]} ${esc(a.label)}" /></li>`).join('')}
           </ul>
