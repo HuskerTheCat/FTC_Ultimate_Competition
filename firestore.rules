@@ -358,6 +358,18 @@ service cloud.firestore {
         && request.resource.data.at == request.time;
     }
 
+    // Where a member gets alerts when asked where they are (Find tab): their browser's push subscription, which teammates
+    // pass to the push relay (relay/worker.js). Only they can change it.
+    match /scoutPushSubs/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['endpoint', 'p256dh', 'auth'])
+        && request.resource.data.endpoint is string && request.resource.data.endpoint.size() <= 1000 && request.resource.data.endpoint.matches('https://.+')
+        && shortText(request.resource.data.p256dh)
+        && shortText(request.resource.data.auth);
+      allow delete: if request.auth.uid == uid;
+    }
+
     // The team's robot (size in inches, speeds in in/s and °/s), copied into each new route.
     match /scoutSettings/robot {
       allow read: if isMember();

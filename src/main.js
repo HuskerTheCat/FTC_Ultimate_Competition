@@ -18,6 +18,7 @@ import { startScouting, renderScoutList, showMatchList } from './scouting.js';
 import { startTeams, renderTeamList, showTeamList } from './teams.js';
 import { startPits } from './pits.js';
 import { startFind, renderFind, showFind, showPingBanner } from './find.js';
+import { registerWorker } from './push.js';
 import { openApp, prefetchApps } from './switching.js';
 
 const WEB_URL = 'https://huskerthecat.github.io/FTC_Ultimate_Competition/';
@@ -56,7 +57,7 @@ const TAB_KEY = 'ftc-scout-tab';
 
 let fb = firebase;
 const app = document.getElementById('app');
-const state = { connection: null, user: null, members: [], routes: [], matches: [], alliances: [], buttons: [], pits: [], checkIns: [], pings: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
+const state = { connection: null, user: null, members: [], routes: [], matches: [], alliances: [], buttons: [], pits: [], checkIns: [], pings: [], pushSubs: [], robot: null, sharedRoute: null, tab: localStorage.getItem(TAB_KEY) ?? 'scout' };
 
 // ---------- helpers ----------
 
@@ -577,6 +578,7 @@ async function joinFromLink() {
 
 async function start() {
   if (LOCKED) return renderLocked();
+  registerWorker();
   try {
     state.sharedRoute = routeFromLink();
   } catch (error) {
@@ -639,6 +641,7 @@ async function start() {
         state.checkIns = checkIns;
         showWhereabouts();
       }, onError),
+      fb.watchPushSubs((pushSubs) => { state.pushSubs = pushSubs; }, onError),
       fb.watchPings((pings) => {
         state.pings = pings;
         showWhereabouts();

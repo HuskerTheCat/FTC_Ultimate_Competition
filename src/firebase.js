@@ -205,6 +205,11 @@ export function checkIn({ place, note }, onError) {
 
 export const watchPings = (callback, onError) => onSnapshot(collection(db, 'scoutPings'), (snap) => callback(timedListOf(snap)), onError);
 
+// Where each member gets alerts (src/push.js): the last device they turned them on for.
+export const watchPushSubs = (callback, onError) => onSnapshot(collection(db, 'scoutPushSubs'), (snap) => callback(listOf(snap).map(({ id, ...sub }) => ({ ...sub, uid: id }))), onError);
+
+export const savePushSub = (sub) => setDoc(doc(db, 'scoutPushSubs', auth.currentUser.uid), sub);
+
 // Asks teammates where they are: one write per teammate, replacing the last question to them.
 export function ping(uids, onError) {
   const batch = writeBatch(db);

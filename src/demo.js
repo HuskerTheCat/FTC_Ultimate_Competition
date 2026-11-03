@@ -216,3 +216,10 @@ export function ping(uids) {
   }
   pingListeners.forEach((listener) => listener());
 }
+
+// Nobody in the demo gets alerts, so asking sends none.
+export function watchPushSubs(callback) {
+  callback([]);
+  return () => {};
+}
+export const savePushSub = async () => {};

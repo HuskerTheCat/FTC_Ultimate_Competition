@@ -1,6 +1,7 @@
 // The Find tab: where each teammate is at the competition. Everyone checks in by tapping a place or typing a message,
 // and can ask one teammate or the whole team where they are. Answering a question is just checking in.
 import { esc } from './ui.js';
+import { pushSupported, deviceEndpoint, subscribe, sendAlerts } from './push.js';
 
 export const PLACES = { pits: 'Pits', stands: 'Stands', queue: 'Queue', field: 'Field', practice: 'Practice field' };
 
@@ -47,7 +48,14 @@ export function renderFind() {
       </form>
       <p id="my-spot" class="muted small"></p>
     </section>
-    <section class="card"><ul id="teammate-list" class="members"></ul></section>`;
+    <section class="card"><ul id="teammate-list" class="members"></ul></section>
+    <section class="card">
+      <h2>Alerts</h2>
+      ${pushSupported() ? `
+        <p id="alerts-state" class="muted small">Get an alert on this device when a teammate asks where you are.</p>
+        <button id="alerts-on" class="secondary" hidden>Turn on alerts</button>`
+      : '<p class="muted small">This browser can’t get alerts. On an iPhone, open the app in Safari, tap Share, then Add to Home Screen, and open it from your Home Screen.</p>'}
+    </section>`;
 
   const form = ui.page.querySelector('#note-form');
   // A place goes with whatever message is typed; Send sends the message on its own.
@@ -68,13 +76,44 @@ export function renderFind() {
   ui.page.querySelector('#ask-all').onclick = () => {
     const others = ui.state.members.filter((m) => m.uid !== ui.state.user.uid).map((m) => m.uid);
     if (!others.length) return ui.showError(new Error('Nobody else is on the team yet.'));
-    ui.fb.ping(others, ui.showError);
+    ask(others);
   };
   ui.page.querySelector('#teammate-list').onclick = (e) => {
     const button = e.target.closest('[data-ask]');
-    if (button) ui.fb.ping([button.dataset.ask], ui.showError);
+    if (button) ask([button.dataset.ask]);
   };
+  if (pushSupported()) showAlertsState();
   showFind();
+}
+
+// Asks teammates where they are, and alerts the ones who turned alerts on.
+function ask(uids) {
+  ui.fb.ping(uids, ui.showError);
+  sendAlerts(ui.state.pushSubs.filter((sub) => uids.includes(sub.uid)), nameOf(ui.state.user.uid).slice(0, 40), ui.showError);
+}
+
+// Alerts go to the last device a member turned them on for, so each device offers to turn them on.
+async function showAlertsState() {
+  const endpoint = await deviceEndpoint();
+  const text = ui.page.querySelector('#alerts-state');
+  const button = ui.page.querySelector('#alerts-on');
+  if (!button) return;
+  const here = Boolean(endpoint) && ui.state.pushSubs.find((sub) => sub.uid === ui.state.user.uid)?.endpoint === endpoint;
+  if (here) text.textContent = 'Alerts are on for this device. Turning them on on another device moves them there.';
+  button.hidden = here;
+  button.onclick = async () => {
+    button.disabled = true;
+    try {
+      const sub = await subscribe();
+      await ui.fb.savePushSub(sub);
+      ui.state.pushSubs = [...ui.state.pushSubs.filter((s) => s.uid !== ui.state.user.uid), { ...sub, uid: ui.state.user.uid }];
+      showAlertsState();
+    } catch (error) {
+      ui.showError(error);
+    } finally {
+      button.disabled = false;
+    }
+  };
 }
 
 // Redraws the tab for teammates' check-ins and questions (main.js).
