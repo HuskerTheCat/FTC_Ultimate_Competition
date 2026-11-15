@@ -48,6 +48,30 @@ export function poseAt({ pieces }, route, time) {
 export const routePoints = (route, season) => route.steps.reduce((sum, step) =>
   sum + (season.actions.find((a) => a.id === step.action)?.points[route.phase] ?? 0), 0);
 
+const inBox = ({ x, y }, box) => x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height;
+
+// The step a tap on the field adds after the pose `from`: there, facing the way the robot drives (in 15° turns).
+// A tap on a hive puts the robot against the nearest side of it that has room, facing in, and tips it when it's
+// the route's own hive.
+export function stepAt(point, from, route, season) {
+  const { hives, hiveAction } = season.field;
+  const alliance = Object.keys(hives).find((side) => inBox(point, hives[side]));
+  if (!alliance) {
+    const h = Math.round((Math.atan2(point.y - from.y, point.x - from.x) * 180) / Math.PI / 15) * 15;
+    return { ...point, h: h === -180 ? 180 : h, action: null, wait: 0 };
+  }
+  const hive = hives[alliance];
+  const reach = route.robot.length / 2 + 1;
+  const { x, y, h } = [
+    { gap: point.x - hive.x, x: hive.x - reach, y: point.y, h: 0 },
+    { gap: hive.x + hive.width - point.x, x: hive.x + hive.width + reach, y: point.y, h: 180 },
+    { gap: point.y - hive.y, x: point.x, y: hive.y - reach, h: 90 },
+    { gap: hive.y + hive.height - point.y, x: point.x, y: hive.y + hive.height + reach, h: -90 },
+  ].filter((side) => !Object.values(hives).some((other) => inBox(side, other)))
+    .reduce((a, b) => (b.gap < a.gap ? b : a));
+  return { x, y, h, action: alliance === route.alliance ? hiveAction : null, wait: 0 };
+}
+
 // The robot's four corners at a pose.
 export function corners({ x, y, h }, { width, length }) {
   const rad = (h * Math.PI) / 180;

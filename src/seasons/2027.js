@@ -50,6 +50,8 @@ export default {
       red: { x: 48, y: 52, width: 22, height: 46, point: 'up' },
       blue: { x: 74, y: 46, width: 22, height: 46, point: 'down' },
     },
+    // The action a robot at a hive most likely does there, picked for a route step added by tapping the hive.
+    hiveAction: 'hiveTip',
     // Outside the left (red) and right (blue) walls, where the drivers stand.
     allianceAreas: { red: { y: 24, height: 96 }, blue: { y: 24, height: 96 } },
     // Where a new route's robot starts: a legal spot on each alliance's wall.

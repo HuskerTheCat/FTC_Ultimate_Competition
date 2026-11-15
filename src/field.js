@@ -107,7 +107,7 @@ export function turnHandleSvg(season, pose, robot) {
 }
 
 // The route's path: a line through its start and steps, with a numbered dot on each step. Each dot has a wider
-// invisible ring so a finger can grab it.
+// invisible ring so a finger can grab it, and each leg (the line to step `data-leg`) a wider invisible line to tap.
 export function pathSvg(season, route, className, selected = -1) {
   const { size } = season.field;
   const dots = route.steps.map((s, i) => `
@@ -116,7 +116,10 @@ export function pathSvg(season, route, className, selected = -1) {
       <circle cx="${s.x}" cy="${flip(size, s.y)}" r="3.2" />
       <text x="${s.x}" y="${flip(size, s.y) + 1.2}">${i + 1}</text>
     </g>`).join('');
-  return `<g class="path ${className}"><polyline points="${points(size, [route.start, ...route.steps])}" />${dots}</g>`;
+  const poses = [route.start, ...route.steps];
+  const legs = route.steps.map((s, i) =>
+    `<line class="leg" data-leg="${i}" x1="${poses[i].x}" y1="${flip(size, poses[i].y)}" x2="${s.x}" y2="${flip(size, s.y)}" />`).join('');
+  return `<g class="path ${className}"><polyline points="${points(size, poses)}" />${legs}${dots}</g>`;
 }
 
 // The field point (inches) under a pointer event on the field's SVG.
