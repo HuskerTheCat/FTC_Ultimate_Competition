@@ -348,6 +348,8 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .status-banner.danger { background: var(--danger); color: #1b0b10; }
 .status-banner.offline { background: var(--surface); color: var(--muted); border-bottom: 1px solid var(--border); }
 .status-banner.demo { background: var(--surface); color: var(--accent); border-bottom: 1px solid var(--border); }
+#dev-banner { position: relative; padding-right: 48px; }
+.banner-close { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); min-height: 32px; width: 32px; padding: 0; border: none; background: none; color: inherit; font-size: 1.3rem; line-height: 1; }
 
 /* Routes: alliance colors, the list, the field, the editor and the player. */
 /* The field's gray foam tiles, as on the real field, darker in dark mode. */

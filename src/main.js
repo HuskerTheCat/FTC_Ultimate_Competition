@@ -29,9 +29,6 @@ const GUIDES_LINK = `<a class="guides-link" href="${GUIDES_URL}" target="_blank"
 const SOURCE_URL = 'https://github.com/HuskerTheCat/FTC_Ultimate_Competition';
 // Opening the app with ?demo runs it on sample data instead of a team's Firebase project (see demo.js).
 const DEMO = new URLSearchParams(location.search).has('demo');
-// The live website (main) stays locked until the app is ready: just the welcome page, with sign-in, setup and the demo
-// turned off. Branch test sites are built unlocked (see .github/workflows/pages.yml).
-const LOCKED = import.meta.env.VITE_LOCKED === 'true';
 // Pain and suffering mode is the light theme. The choice is saved on this device only.
 const THEME_KEY = 'ftc-scout-theme';
 const THEME_COLORS = { light: '#eef1f7', dark: '#151b30' };
@@ -219,11 +216,6 @@ function wireAppSwitcher() {
   };
   document.addEventListener('pointerdown', (e) => e.target.closest('.menuwrap') || show(false));
   document.addEventListener('keydown', (e) => e.key === 'Escape' && show(false));
-}
-
-function renderLocked() {
-  renderWelcome();
-  for (const control of app.querySelectorAll('.card :is(button, input, select)')) control.disabled = true;
 }
 
 // The setup steps in short, with the details in the setup guide. Creating the team first checks the Firebase project (see setup.js).
@@ -561,7 +553,6 @@ async function joinFromLink() {
 }
 
 async function start() {
-  if (LOCKED) return renderLocked();
   try {
     state.sharedRoute = routeFromLink();
   } catch (error) {

@@ -17,7 +17,7 @@
     <script src="switching.js"></script>
   </head>
   <body>
-    <p class="status-banner">This app is still under development</p>
+    <p id="dev-banner" class="status-banner" hidden>This app is still under development<button id="dev-banner-close" class="banner-close" aria-label="Close">×</button></p>
     <p id="offline-banner" class="status-banner offline" role="status" hidden>Offline, changes will sync when you reconnect</p>
     <button id="rules-banner" class="status-banner" hidden>Your Firebase rules are out of date, click for update instructions</button>
     <button id="open-rules-banner" class="status-banner danger" hidden>Your Firebase is configured incorrectly and your account is not secure. Click here to fix</button>
