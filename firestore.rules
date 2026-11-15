@@ -1,16 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // One rules file for every FTC Ultimate app, since publishing rules replaces the whole file. It's identical in
-    // every app's repo (see SUITE.md).
+    // One rules file for every FTC Ultimate app, since publishing rules replaces the whole file. It must stay identical
+    // in every app's repo: whenever you change it, copy the whole file into the other apps' repos in the same change
+    // (see SUITE.md).
 
     // ---------- Shared: team, members, join (every FTC Ultimate app) ----------
 
     // Each app has its own number. Add 1 to an app's number whenever its section changes, and to both when the shared
     // section changes. Each app is built with its number (vite.config.js) and, after sign-in, reads <name>/<number>;
     // if the team's published rules are older, that's denied and the app shows a banner linking to "Updating the rules".
-    function rulesVersion() { return 5; }
-    function scoutRulesVersion() { return 6; }
+    function rulesVersion() { return 10; }
+    function scoutRulesVersion() { return 7; }
 
     function signedIn() {
       return request.auth != null;
@@ -109,7 +110,7 @@ service cloud.firestore {
     }
     function validPart() {
       let part = request.resource.data;
-      return part.keys().hasOnly(['projectId', 'name', 'partNumber', 'barcode', 'link', 'quantity', 'minQuantity', 'location', 'supplier', 'category', 'tags', 'unit', 'condition', 'notes', 'updatedBy', 'updatedAt'])
+      return part.keys().hasOnly(['projectId', 'name', 'partNumber', 'barcode', 'link', 'quantity', 'minQuantity', 'location', 'supplier', 'category', 'tags', 'unit', 'condition', 'damaged', 'broken', 'notes', 'spot', 'made', 'material', 'updatedBy', 'updatedAt'])
         && projectExists(part.projectId)
         && shortText(part.name) && part.name.size() > 0
         && shortText(part.partNumber)
@@ -120,8 +121,14 @@ service cloud.firestore {
         && shortText(part.category)
         && validTags(part.tags)
         && (!('unit' in part) || shortText(part.unit))
-        && (!('condition' in part) || part.condition in ['', 'new', 'used', 'broken'])
+        && (!('condition' in part) || part.condition in ['', 'new', 'used', 'damaged', 'broken'])
+        // How many of the part are damaged or broken, for a part the team has more than one of.
+        && (!('damaged' in part) || (part.damaged is int && part.damaged >= 0 && part.damaged <= 1000000))
+        && (!('broken' in part) || (part.broken is int && part.broken >= 0 && part.broken <= 1000000))
         && (!('notes' in part) || (part.notes is string && part.notes.size() <= 1000))
+        && (!('spot' in part) || (part.spot is string && part.spot.matches('[A-Z][1-9][0-9]?')))
+        && (!('made' in part) || part.made in ['3d-print', 'cnc', 'laser', 'other'])
+        && (!('material' in part) || shortText(part.material))
         && part.quantity is int && part.quantity >= 0 && part.quantity <= 1000000
         && (!('minQuantity' in part) || (part.minQuantity is int && part.minQuantity >= 0 && part.minQuantity <= 1000000))
         && part.updatedBy == request.auth.token.email
@@ -138,14 +145,26 @@ service cloud.firestore {
     }
     function validOrder() {
       let order = request.resource.data;
-      return order.keys().hasOnly(['name', 'partNumber', 'quantity', 'supplier', 'partId', 'link', 'notes'])
+      return order.keys().hasOnly(['name', 'partNumber', 'quantity', 'supplier', 'partId', 'link', 'notes', 'status'])
         && shortText(order.name) && order.name.size() > 0
+        && (!('status' in order) || order.status in ['ordered', 'arrived'])
         && (!('link' in order) || webLink(order.link))
         && (!('notes' in order) || (order.notes is string && order.notes.size() <= 1000))
         && shortText(order.partNumber)
         && shortText(order.supplier)
         && order.quantity is int && order.quantity > 0 && order.quantity <= 1000000
         && (order.partId == '' || exists(/databases/$(database)/documents/parts/$(order.partId)));
+    }
+    // A part the team makes itself, on the print list. The part has to exist; method, material and file are the part's.
+    // status is 'making' or 'made'; items without one are still to make.
+    function validBuild() {
+      let build = request.resource.data;
+      return build.keys().hasOnly(['name', 'partId', 'quantity', 'status', 'notes'])
+        && shortText(build.name) && build.name.size() > 0
+        && (!('status' in build) || build.status in ['making', 'made'])
+        && (!('notes' in build) || (build.notes is string && build.notes.size() <= 1000))
+        && build.quantity is int && build.quantity > 0 && build.quantity <= 1000000
+        && build.partId is string && existsAfter(/databases/$(database)/documents/parts/$(build.partId));
     }
 
     match /log/{entryId} {
@@ -155,7 +174,7 @@ service cloud.firestore {
         && request.resource.data.at == request.time
         && request.resource.data.by == request.auth.uid
         && validName(request.resource.data.byName)
-        && request.resource.data.action in ['added', 'edited', 'quantity', 'deleted', 'used', 'arrived']
+        && request.resource.data.action in ['added', 'edited', 'quantity', 'deleted', 'used', 'arrived', 'made']
         && shortText(request.resource.data.part)
         && request.resource.data.details is string && request.resource.data.details.size() <= 2000;
     }
@@ -180,11 +199,18 @@ service cloud.firestore {
       allow delete: if isMember() && projectId != 'main' && trashedNow('project', projectId);
     }
 
+    // A location can be a grid of spots, like a cabinet of small drawers: rows A to Z, columns 1 to 50.
+    function validGrid(location) {
+      return (!('rows' in location) && !('cols' in location))
+        || (location.rows is int && location.rows >= 1 && location.rows <= 26
+          && location.cols is int && location.cols >= 1 && location.cols <= 50);
+    }
     match /locations/{locationId} {
       allow read, delete: if isMember();
       allow create, update: if isMember()
-        && request.resource.data.keys().hasOnly(['name'])
-        && shortText(request.resource.data.name) && request.resource.data.name.size() > 0;
+        && request.resource.data.keys().hasOnly(['name', 'rows', 'cols'])
+        && shortText(request.resource.data.name) && request.resource.data.name.size() > 0
+        && validGrid(request.resource.data);
     }
 
     match /printed/{labelKey} {
@@ -202,6 +228,11 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read, delete: if isMember();
       allow create, update: if isMember() && validOrder();
+    }
+
+    match /builds/{buildId} {
+      allow read, delete: if isMember();
+      allow create, update: if isMember() && validBuild();
     }
 
     // Deleted parts, projects and orders, kept so they can be brought back. Restoring writes `data` and `uses`
@@ -335,6 +366,39 @@ service cloud.firestore {
         && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 30
         && request.resource.data.points is int && request.resource.data.points >= -100 && request.resource.data.points <= 100;
       allow delete: if isMember();
+    }
+
+    // Where each member is at the competition (Find tab), under their uid: a place, a message or both. Only they can change it.
+    match /scoutCheckIns/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['place', 'note', 'at'])
+        && request.resource.data.place in ['', 'pits', 'stands', 'queue', 'field', 'practice']
+        && request.resource.data.note is string && request.resource.data.note.size() <= 100
+        && (request.resource.data.place != '' || request.resource.data.note.size() > 0)
+        && request.resource.data.at == request.time;
+    }
+
+    // The latest question to a member, under their uid, asking where they are. Their next check-in answers it.
+    match /scoutPings/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && uid != request.auth.uid
+        && exists(/databases/$(database)/documents/members/$(uid))
+        && request.resource.data.keys().hasOnly(['from', 'at'])
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.at == request.time;
+    }
+
+    // Where a member gets alerts when asked where they are (Find tab): their browser's push subscription, which teammates
+    // pass to the push relay (relay/worker.js). Only they can change it.
+    match /scoutPushSubs/{uid} {
+      allow read: if isMember();
+      allow create, update: if isMember() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['endpoint', 'p256dh', 'auth'])
+        && request.resource.data.endpoint is string && request.resource.data.endpoint.size() <= 1000 && request.resource.data.endpoint.matches('https://.+')
+        && shortText(request.resource.data.p256dh)
+        && shortText(request.resource.data.auth);
+      allow delete: if request.auth.uid == uid;
     }
 
     // The team's robot (size in inches, speeds in in/s and °/s), copied into each new route.
