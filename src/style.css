@@ -5,25 +5,28 @@
 @import '@fontsource/orbitron/latin-500.css';
 @import '@fontsource/orbitron/latin-800.css';
 
-/* Inventory's navy surfaces and theme tokens, with Scout orange as the accent. */
+/* Inventory's navy surfaces and theme tokens, with Competition orange as the accent. */
 :root {
-  --bg: #0e1221;
-  --surface: #161b2e;
-  --raised: #1f2640;
-  --field: #11162a;
+  --bg: #151b30;
+  --surface: #1f2640;
+  --raised: #2a3354;
+  --field: #181e36;
   --text: #eef1f8;
-  --muted: #8f98b5;
-  --border: #283050;
+  --muted: #9aa3c0;
+  --border: #34406a;
   --field-border: #5c6894;
   --accent: #ffa53d;
   --accent-gradient: linear-gradient(135deg, #ffa53d, #e07415);
   --accent-text: #ffffff;
-  --raised-hover: #283152;
-  --row-hover: #1c2238;
+  --raised-hover: #343e66;
+  --row-hover: #262e4c;
   --placeholder: #6b7493;
   --scrollbar: #3a4466;
   --focus: 0 0 0 3px rgb(255 165 61 / 0.85);
   --float-shadow: 0 18px 48px rgb(0 0 0 / 0.5);
+  --btn-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.25);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 14px rgb(0 0 0 / 0.25);
+  --field-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 0 rgb(255 255 255 / 0.09);
   --danger: #ff6b7d;
   --backdrop: rgb(5 7 14 / 0.75);
   color-scheme: dark;
@@ -38,12 +41,15 @@
   --muted: #586180;
   --border: #d3d9e6;
   --field-border: #8a94b2;
-  --accent: #b45309;
+  --accent: #c25f08;
   --raised-hover: #d5dcea;
   --row-hover: #eef2fa;
   --placeholder: #8a92ad;
   --scrollbar: #b8c0d4;
   --float-shadow: 0 18px 48px rgb(20 30 60 / 0.18);
+  --btn-shadow: 0 1px 2px rgb(20 30 60 / 0.16), 0 2px 6px rgb(20 30 60 / 0.1);
+  --card-shadow: 0 1px 2px rgb(20 30 60 / 0.12), 0 4px 14px rgb(20 30 60 / 0.08);
+  --field-shadow: inset 0 1px 3px rgb(20 30 60 / 0.22);
   --danger: #d0263f;
   --backdrop: rgb(20 26 46 / 0.4);
   color-scheme: light;
@@ -75,13 +81,12 @@ a { color: var(--accent); }
   margin-bottom: 16px;
   background: url(../public/icon.svg) center / contain no-repeat;
 }
-.center > .card { box-shadow: none; }
 /* The home page's cube opens the app switcher: Inventory, Competition and Design, each with its own cube. */
 .center > .lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 .menuwrap { position: relative; display: flex; }
 /* An outlined tile with a chevron, so the cube reads as a button rather than a logo (as in Inventory). */
-#apps-toggle { flex: none; display: flex; align-items: center; gap: 4px; min-height: 0; margin: -3px; padding: 4px 8px 4px 4px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; transition: transform 0.1s; }
-#apps-toggle:hover, #apps-toggle[aria-expanded="true"] { border-color: var(--accent); }
+#apps-toggle { flex: none; display: flex; align-items: center; gap: 4px; min-height: 0; margin: -3px; padding: 4px 8px 4px 4px; background: var(--raised); border: 1px solid transparent; border-radius: 14px; cursor: pointer; transition: transform 0.1s; }
+#apps-toggle:hover, #apps-toggle[aria-expanded="true"] { background: var(--raised-hover); }
 #apps-toggle:active { transform: scale(0.94); }
 #apps-toggle .chevron { flex: none; color: var(--muted); }
 #apps-toggle:hover .chevron, #apps-toggle[aria-expanded="true"] .chevron { color: var(--accent); }
@@ -99,28 +104,29 @@ a { color: var(--accent); }
 :root[data-theme="light"] #apps-menu .menu-item:has(.inventory) { color: #2563d9; }
 :root[data-theme="light"] #apps-menu .menu-item:has(.design) { color: #16804d; }
 /* Menus, as in Inventory. */
-.menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 260px; padding: 6px; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--float-shadow); }
+.menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 260px; padding: 6px; background: var(--raised); border: 1px solid transparent; border-radius: 12px; box-shadow: var(--float-shadow); }
 .menu[hidden] { display: none; }
 .menu h3 { margin: 4px 10px; font-size: 0.8rem; font-weight: 500; color: var(--muted); }
 .menu-item { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 8px 10px; border: none; border-radius: 10px; background: none; color: var(--text); font-weight: 500; text-align: left; text-decoration: none; }
 .menu-item:hover { background: var(--row-hover); }
-.menu-item[aria-current="true"] { background: rgb(255 165 61 / 0.15); color: var(--accent); }
+.menu-item[aria-current="true"] { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 /* The sign-in card holds two forms: sign in, and join with a code. Stacked on phones, side by side below. */
 .split > form { display: flex; flex-direction: column; gap: 12px; }
 .split > form + form { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 8px; }
-/* The first screens sit on the topographic map of the link preview: dark navy fading to orange in one corner, thin contour lines over it. */
-body:has(> #app > .center) { position: relative; --topo-from: #0e1221; --topo-to: #cc6414; --topo-line: #ffa53d; --topo-line-opacity: 0.3; }
-:root[data-theme="light"] body:has(> #app > .center) { --topo-from: #eef1f7; --topo-to: #f6cfa6; --topo-line: #b45309; --topo-line-opacity: 0.22; }
+/* Every screen sits on the topographic map of the link preview: dark navy fading to orange in one corner, thin contour lines over it. */
+body { position: relative; --topo-from: #151b30; --topo-to: #cc6414; --topo-line: #ffa53d; --topo-line-opacity: 0.65; }
+:root[data-theme="light"] body { --topo-from: #eef1f7; --topo-to: #f6cfa6; --topo-line: #c25f08; --topo-line-opacity: 0.45; }
 /* The gradient stays put. It is as tall as the screen with a phone's address bar hidden, so it still fills the screen once the bar slides away. */
-body:has(> #app > .center)::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 100lvh; z-index: -1; pointer-events: none; background: linear-gradient(110deg, var(--topo-from) 55%, var(--topo-to) 100%); }
-/* The contour lines cover the whole page and scroll with it. */
-body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; min-height: 100lvh; z-index: -1; pointer-events: none; background: var(--topo-line); opacity: var(--topo-line-opacity); -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; }
+body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 100lvh; z-index: -1; pointer-events: none; background: linear-gradient(110deg, var(--topo-from) 20%, 68%, var(--topo-to) 100%); }
+/* The contour lines cover the whole page and scroll with it. Both files are built to redraw cheaply (same files as Inventory): the glow is a ready-blurred image,
+   and topo.svg holds the map 16 times over, since a page taller than one copy makes Chrome redraw the whole repeating map at once (slow, and blurry on phones). */
+body::after { content: ''; position: absolute; inset: 0; min-height: 100lvh; z-index: -1; pointer-events: none; background: var(--topo-line); opacity: var(--topo-line-opacity); -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y, url(./topo-glow.webp) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y, url(./topo-glow.webp) center top / max(100vw, 1280px) auto repeat-y; }
 /* Tied to the scroll, the lines slide back down by 70% of it, so they drift at 30% of the page's speed. will-change lets the browser run it alongside its own scrolling (without it Chrome moves the lines a frame late, which looks jumpy).
    The layer is 30% of the page plus 70% of a screen tall, so at the bottom of the page it ends exactly at the page's end and never makes the page longer. Browsers without scroll-driven animations scroll the lines with the page. */
 @keyframes topo-drift { to { transform: translateY(calc((100% - 100lvh) * 7 / 3)); } }
 @supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
-    body:has(> #app > .center)::after { bottom: auto; height: calc(30% + 70lvh); will-change: transform; animation: topo-drift linear both; animation-timeline: scroll(root); }
+    body::after { bottom: auto; height: calc(30% + 70lvh); will-change: transform; animation: topo-drift linear both; animation-timeline: scroll(root); }
   }
 }
 /* The app's name in the title font: "Competition" lighter and orange, under "FTC Ultimate". */
@@ -128,7 +134,7 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
 .brand .app-name { display: block; font-weight: 500; color: var(--accent); }
 /* Guides button, top right of the first screens. */
 #app:has(> .center) { position: relative; }
-.guides-link { position: absolute; top: 16px; right: 24px; min-height: 0; padding: 6px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 600; }
+.guides-link { position: absolute; top: 16px; right: 24px; min-height: 0; padding: 6px 14px; border: 1px solid transparent; border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 600; text-decoration: none; }
 .guides-link:hover { background: var(--raised); }
 /* Phones: level with the logo above the title, clear of it. */
 @media (max-width: 759px) { .guides-link { top: 67px; } }
@@ -150,7 +156,7 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
 }
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 16px;
   padding: 20px;
   display: flex;
@@ -164,8 +170,8 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
   margin: 0;
   padding: 10px 14px;
   border-radius: 10px;
-  background: rgb(255 107 125 / 0.1);
-  border: 1px solid rgb(255 107 125 / 0.5);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border: 1px solid transparent;
   color: var(--danger);
 }
 .error[hidden] { display: none; }
@@ -175,7 +181,7 @@ body:has(> #app > .center)::after { content: ''; position: absolute; inset: 0; m
 .steps li::marker { color: var(--text); font-weight: 600; }
 .steps strong { color: var(--text); font-weight: 600; }
 .steps button { display: block; margin-top: 8px; }
-.problems { margin: 0; padding: 10px 14px 10px 32px; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; background: rgb(255 107 125 / 0.1); border: 1px solid rgb(255 107 125 / 0.5); color: var(--danger); }
+.problems { margin: 0; padding: 10px 14px 10px 32px; display: flex; flex-direction: column; gap: 6px; border-radius: 10px; background: color-mix(in srgb, var(--danger) 10%, transparent); border: 1px solid transparent; color: var(--danger); }
 .problems[hidden] { display: none; }
 label[hidden] { display: none; }
 .problems .muted { list-style: none; margin-left: -18px; }
@@ -191,9 +197,10 @@ input, select, textarea {
   width: 100%;
   min-height: 42px;
   padding: 8px 12px;
-  border: 1px solid var(--field-border);
+  border: 1px solid transparent;
   border-radius: 10px;
   background: var(--field);
+  box-shadow: var(--field-shadow);
 }
 /* Our own dropdown arrow: the built-in one turns white while the list is open on some systems. */
 select {
@@ -208,18 +215,18 @@ select {
   select::picker-icon { display: none; }
 }
 select { white-space: nowrap; overflow: hidden; }
-::picker(select) { margin-top: 6px; padding: 6px; background: var(--raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--float-shadow); }
+::picker(select) { margin-top: 6px; padding: 6px; background: var(--raised); border: 1px solid transparent; border-radius: 12px; box-shadow: var(--float-shadow); }
 option { padding: 8px 10px; border-radius: 8px; color: var(--text); }
 option::checkmark { display: none; }
 option:is(:hover, :focus-visible) { background: var(--row-hover); outline: none; }
-option:checked { background: rgb(255 165 61 / 0.15); color: var(--accent); }
+option:checked { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 0.85rem; }
 label, .field { display: flex; flex-direction: column; gap: 6px; font-size: 0.875rem; font-weight: 500; color: var(--muted); }
 label input { color: var(--text); font-weight: 400; font-size: 1rem; }
 label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; }
 label.check input { width: 18px; min-height: 18px; margin: 0; accent-color: var(--accent); }
 :is(input, textarea)::placeholder { color: var(--placeholder); }
-input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+input:focus, select:focus, textarea:focus { outline: none; box-shadow: var(--focus); }
 
 /* Buttons: primary (gradient), secondary (filled) */
 button {
@@ -236,9 +243,9 @@ button {
 button:not([class]):hover { filter: brightness(1.08); }
 button.secondary { background: var(--raised); color: var(--text); }
 button.secondary:hover { background: var(--raised-hover); }
-button.danger { background: none; color: var(--danger); border-color: rgb(255 107 125 / 0.5); }
-button.danger:hover { background: rgb(255 107 125 / 0.1); }
-button.link { min-height: 0; background: none; border: none; color: var(--accent); padding: 4px; align-self: center; font-weight: 500; }
+button.danger { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: var(--danger); }
+button.danger:hover { background: color-mix(in srgb, var(--danger) 20%, var(--surface)); }
+button.link { min-height: 0; background: none; border: none; box-shadow: none; color: var(--accent); padding: 4px; align-self: center; font-weight: 500; }
 button.link.inline { padding: 2px 0; align-self: auto; text-decoration: underline; font-size: inherit; }
 :is(button, input, select):disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -262,17 +269,9 @@ header #menu { left: auto; right: 0; }
   header #scan { width: 42px; padding: 0; justify-content: center; }
   header #scan span { display: none; }
 }
-/* The signed-in screens have the first screens' contour lines behind the header, fading out above the lists. */
-body:has(> #app > main:not(.center)) { position: relative; }
-body:has(> #app > main:not(.center))::after {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 320px; z-index: -1; pointer-events: none; background: var(--accent); opacity: 0.2;
-  -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto, linear-gradient(#000 30%, transparent); -webkit-mask-composite: source-in;
-  mask: url(./topo.svg) center top / max(100vw, 1280px) auto, linear-gradient(#000 30%, transparent); mask-composite: intersect;
-}
-:root[data-theme="light"] body:has(> #app > main:not(.center))::after { opacity: 0.15; }
 /* Buttons with an icon and a label: Scan, Pit scout, Play. */
-button.with-icon { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border-color: var(--border); }
-button.icon { width: 42px; padding: 0; background: var(--surface); color: var(--muted); border-color: var(--border); }
+button.with-icon { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); }
+button.icon { width: 42px; padding: 0; background: var(--surface); color: var(--muted); }
 button.icon svg { display: block; margin: 0 auto; }
 button.icon:hover, button.icon[aria-expanded="true"] { background: var(--raised); color: var(--text); }
 /* Flex, so the button inside isn't lifted by the text line around it. */
@@ -286,7 +285,7 @@ button.icon:hover, button.icon[aria-expanded="true"] { background: var(--raised)
   min-width: 220px;
   padding: 6px;
   background: var(--raised);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 12px;
   box-shadow: var(--float-shadow);
 }
@@ -320,7 +319,7 @@ button.icon:hover, button.icon[aria-expanded="true"] { background: var(--raised)
 .empty { align-items: center; text-align: center; padding: 40px 20px; }
 
 /* Dialogs: the dialog is the rounded panel, so its scrollbar sits inside it. */
-dialog { border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--surface); box-shadow: var(--float-shadow); width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; color: var(--text); }
+dialog { border: 1px solid transparent; border-radius: 16px; padding: 0; background: var(--surface); box-shadow: var(--float-shadow); width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; color: var(--text); }
 dialog::backdrop { background: var(--backdrop); backdrop-filter: blur(3px); }
 dialog .card { padding: 24px; border: none; }
 dialog .card > .row:last-child { justify-content: flex-end; }
@@ -358,7 +357,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .chip.red { background: var(--red); }
 .chip.blue { background: var(--blue); }
 .route-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.route-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
+.route-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
 .route-card:hover { background: var(--raised); }
 .route-card > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .route-list li { display: flex; align-items: center; gap: 8px; }
@@ -423,7 +422,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 /* Tall enough that the page can always scroll the app's header away. */
 .editor { display: flex; flex-direction: column; gap: 12px; min-height: 100svh; }
 .editor-field, .editor-side, .editor-notes, .setup-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.editor-head { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.editor-head { min-width: 0; border: 1px solid transparent; border-radius: 12px; background: var(--surface); }
 .editor-head > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; cursor: pointer; list-style: none; }
 .editor-head > summary::-webkit-details-marker { display: none; }
 .editor-head > summary > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
@@ -439,7 +438,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .editor-options #route-team { width: 96px; }
 .robot-button span { margin-left: 6px; font-weight: 400; color: var(--muted); font-size: 0.85rem; }
 .totals { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; }
-.totals > div { display: flex; flex-direction: column; padding: 8px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.totals > div { display: flex; flex-direction: column; padding: 8px 14px; border-radius: 12px; background: var(--surface); border: 1px solid transparent; }
 .totals b { font-size: 1.5rem; line-height: 1.2; }
 .totals span { font-size: 0.8rem; color: var(--muted); }
 .totals .bar { display: block; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--raised); overflow: hidden; }
@@ -456,7 +455,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .legend .flower { width: 10px; border-radius: 50%; background: #f2c94c; }
 .legend .middle { height: 0; border-top: 1.5px dashed var(--muted); }
 .step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.step-row { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.step-row { border: 1px solid transparent; border-radius: 12px; background: var(--surface); }
 .step-row.selected { border-color: var(--accent); }
 .step-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: none; border: none; color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
 .step-num { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; border: 2px solid; font-weight: 700; font-size: 0.85rem; }
@@ -477,7 +476,7 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .facing button[data-turn-by] { font-size: 0.85rem; }
 .choices button { padding: 6px 12px; font-weight: 500; }
 .choices button span { margin-left: 4px; color: var(--muted); font-weight: 400; }
-:is(.facing, .choices) button[aria-pressed="true"] { background: rgb(255 165 61 / 0.15); border-color: var(--accent); color: var(--accent); }
+:is(.facing, .choices) button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 15%, transparent); border-color: var(--accent); color: var(--accent); }
 :is(.facing, .choices) button[aria-pressed="true"] span { color: var(--accent); }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper button { width: 44px; padding: 0; font-size: 1.2rem; }
@@ -509,7 +508,7 @@ input[type="range"] { min-height: 0; padding: 0; border: none; background: none;
 .counter { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .counter > .card { gap: 8px; padding: 12px; }
 .counter > .card > .row { justify-content: space-between; }
-.tally { width: 100%; min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; background: var(--raised); border-color: var(--border); color: var(--text); font-weight: 500; text-align: left; white-space: normal; }
+.tally { width: 100%; min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; background: var(--raised); color: var(--text); font-weight: 500; text-align: left; white-space: normal; }
 .tally > span { display: flex; flex-direction: column; }
 .tally .small { color: var(--muted); font-weight: 400; }
 .tally > strong { font-size: 1.3rem; }
@@ -569,7 +568,7 @@ dialog h3 { margin: 8px 0 0; font-size: 1rem; }
 .tally-row > .tally { flex: 1; min-width: 0; }
 .minus { flex: none; width: 40px; min-height: 56px; padding: 0; font-size: 1.3rem; }
 .group .tally-row + .tally-row, .group > summary + .tally-row { margin-top: 8px; }
-.notice { margin: 0; padding: 10px 14px; border-radius: 10px; background: rgb(255 165 61 / 0.15); color: var(--text); }
+.notice { margin: 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--text); }
 .match-group { display: flex; flex-direction: column; gap: 8px; }
 .match-group > h2 { margin: 0; font-size: 1rem; }
 .tally-row > .tally { padding: 8px 10px; }
@@ -609,7 +608,7 @@ p.match-clock[data-phase="teleop"] { background: #3d7bff; color: #fff; }
 /* Scout and Teams: the event picker, a button with the chosen event opening a menu of the team's events, as Inventory's
    inventory picker. */
 .eventpick { flex: 1 1 auto; min-width: 0; }
-#event { width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 12px; background: var(--surface); border-color: var(--border); color: var(--text); font-size: 1.25rem; text-align: left; }
+#event { width: 100%; display: flex; align-items: center; gap: 10px; padding: 4px 12px; background: var(--surface); color: var(--text); font-size: 1.25rem; text-align: left; }
 #event:hover { background: var(--raised); }
 #event[aria-expanded="true"] { border-color: var(--accent); }
 #event svg:first-child { flex: none; color: var(--accent); }
@@ -651,8 +650,8 @@ dialog section > h3 { margin: 0 0 4px; }
 /* Opening another FTC Ultimate app on the website (src/switching.js): that app's loading screen, its cube turning (public/loading.svg)
    over "FTC Ultimate" and its name, on the topographic map of that app's first screens. Always the dark map, like the link preview,
    so it looks the same on both pages whatever mode each app is in. */
-#switching { --topo-to: #3460d6; --topo-line: #5b9bff; position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: linear-gradient(110deg, #0e1221 55%, var(--topo-to) 100%); color: #eef1f8; opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0s 0.25s; }
-#switching::before { content: ''; position: absolute; inset: 0; background: var(--topo-line); opacity: 0.3; -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y; }
+#switching { --topo-to: #3460d6; --topo-line: #5b9bff; position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: linear-gradient(110deg, #151b30 20%, 68%, var(--topo-to) 100%); color: #eef1f8; opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0s 0.25s; }
+#switching::before { content: ''; position: absolute; inset: 0; background: var(--topo-line); opacity: 0.65; -webkit-mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y, url(./topo-glow.webp) center top / max(100vw, 1280px) auto repeat-y; mask: url(./topo.svg) center top / max(100vw, 1280px) auto repeat-y, url(./topo-glow.webp) center top / max(100vw, 1280px) auto repeat-y; }
 #switching img { position: relative; width: 128px; height: 128px; }
 #switching p { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0; font: 800 1.6rem/1.15 Orbitron, sans-serif; }
 #switching .app-name { font-weight: 500; color: var(--topo-line); }
@@ -662,3 +661,18 @@ dialog section > h3 { margin: 0 0 4px; }
 @media (prefers-reduced-motion: reduce) { #switching, .switching #switching { transition: none; } }
 /* Browsers with cross-document view transitions also cross-fade from one app's page to the next. */
 @media (prefers-reduced-motion: no-preference) { @view-transition { navigation: auto; } }
+
+/* As in Inventory: every button reacts to the pointer, and every grey one lights up the same colour (!important beats the buttons that set their own background).
+   Orange buttons brighten; text-only ones lighten. Touch screens skip it so nothing stays lit after a tap. */
+@media (hover: hover) {
+  button:is(.secondary, .icon, .route-card, .tally, .step-head, #apps-toggle):not(:disabled, [aria-pressed="true"], [aria-checked="true"], .danger):hover { background: var(--raised-hover) !important; }
+  button.link:not(:disabled):hover { filter: brightness(1.4); }
+  :root[data-theme="light"] button.link:not(:disabled):hover { filter: brightness(0.7); }
+}
+
+/* As in Inventory: filled buttons rest on a soft shadow instead of a border; text-only buttons, tabs and menu rows stay flat. */
+button:is(:not([class]), .secondary, .icon, .danger, .tally, #apps-toggle):not(.tabs button, .segmented button, .members button) { box-shadow: var(--btn-shadow); }
+
+/* Surfaces rest on a soft shadow instead of a border. */
+:is(.card, .error, .problems, .guides-link, .route-card, .editor-head, .totals > div, .step-row) { box-shadow: var(--card-shadow); }
+.menu, dialog, ::picker(select) { box-shadow: var(--float-shadow); }

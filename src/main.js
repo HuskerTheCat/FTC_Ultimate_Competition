@@ -34,7 +34,7 @@ const DEMO = new URLSearchParams(location.search).has('demo');
 const LOCKED = import.meta.env.VITE_LOCKED === 'true';
 // Pain and suffering mode is the light theme. The choice is saved on this device only.
 const THEME_KEY = 'ftc-scout-theme';
-const THEME_COLORS = { light: '#eef1f7', dark: '#0e1221' };
+const THEME_COLORS = { light: '#eef1f7', dark: '#151b30' };
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   document.querySelector('meta[name="theme-color"]').content = THEME_COLORS[theme];
