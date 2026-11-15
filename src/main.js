@@ -511,7 +511,7 @@ async function openTeamDialog() {
 
 // How the team admin publishes the app's rules. `open` when the published rules let anyone in.
 function openRulesDialog(open) {
-  const dialog = app.querySelector('#dialog');
+  const dialog = document.getElementById('rules-dialog');
   dialog.innerHTML = `
     <form method="dialog" class="card">
       <h2>${open ? 'Fix your Firebase rules' : 'Update your Firebase rules'}</h2>
@@ -603,8 +603,12 @@ async function start() {
     checkRules(fb, openRulesDialog).catch(showError);
     const onError = (error) => {
       if (error.code !== 'permission-denied') return showError(error);
-      state.signInError = new Error(`You no longer have access to ${state.connection.teamName}.`);
-      fb.logOut();
+      // Rules older than this app deny its newer collections. That isn't lost access: the rules banner shows the fix.
+      fb.rulesUpToDate().then((upToDate) => {
+        if (!upToDate) return;
+        state.signInError = new Error(`You no longer have access to ${state.connection.teamName}.`);
+        fb.logOut();
+      }).catch(showError);
     };
     const stops = [
       fb.watchMembers((members) => { state.members = members; }, onError),
