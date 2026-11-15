@@ -351,8 +351,9 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .status-banner.demo { background: var(--surface); color: var(--accent); border-bottom: 1px solid var(--border); }
 
 /* Routes: alliance colors, the list, the field, the editor and the player. */
-:root { --red: #ff5d6c; --blue: #4d8dff; --field-floor: #1a2036; --field-line: #2c3554; }
-:root[data-theme="light"] { --red: #d0263f; --blue: #2f5bd6; --field-floor: #e6eaf2; --field-line: #c3cbdc; }
+/* The field's gray foam tiles, as on the real field, darker in dark mode. */
+:root { --red: #ff5d6c; --blue: #4d8dff; --field-floor: #2a2e37; --field-tile: #454a55; --field-wall: #c4cad6; }
+:root[data-theme="light"] { --red: #d0263f; --blue: #2f5bd6; --field-floor: #9da3ae; --field-tile: #c9cdd4; --field-wall: #5d6472; }
 .chip { display: inline-block; min-width: 56px; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; text-align: center; color: #fff; }
 .chip.red { background: var(--red); }
 .chip.blue { background: var(--blue); }
@@ -360,21 +361,33 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .route-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-color: var(--border); color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
 .route-card:hover { background: var(--raised); }
 .route-card > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.route-list li { display: flex; align-items: center; gap: 8px; }
+.route-list .route-card { flex: 1; min-width: 0; }
+.route-list .icon { flex: none; min-height: 48px; width: 48px; }
+.route-chips button.red { border-color: var(--red); }
+.route-chips button.blue { border-color: var(--blue); }
+.route-chips button.red[aria-pressed="true"] { background: var(--red); border-color: var(--red); color: #fff; }
+.route-chips button.blue[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 
 .field-wrap { width: 100%; max-width: 620px; align-self: center; touch-action: none; user-select: none; }
 .field { display: block; width: 100%; height: auto; }
 .field .floor { fill: var(--field-floor); }
-.field .grid line { stroke: var(--field-line); stroke-width: 0.4; }
-.field .middle { stroke: var(--muted); stroke-width: 0.4; stroke-dasharray: 2 2; }
-.field .wall { fill: none; stroke: var(--muted); stroke-width: 1; }
+.field .tiles rect { fill: var(--field-tile); }
+.field .middle { stroke: var(--text); stroke-width: 0.4; stroke-dasharray: 2 2; opacity: 0.5; }
+.field .wall { fill: none; stroke: var(--field-wall); stroke-width: 1.2; }
 .field .labels text { fill: var(--muted); font: 600 5px Saira, sans-serif; text-anchor: middle; }
-.field .zone, .field .garden { stroke: none; opacity: 0.35; }
-.field .hive { fill: none; stroke-width: 1; }
-.field .red:is(.zone, .garden) { fill: var(--red); }
-.field .blue:is(.zone, .garden) { fill: var(--blue); }
-.field .hive.red { stroke: var(--red); }
-.field .hive.blue { stroke: var(--blue); }
-.field .flower { fill: #f2c94c; }
+.field .alliance-area { opacity: 0.8; }
+.field .zone { fill-opacity: 0.4; stroke-width: 0.8; }
+.field .garden { stroke: none; }
+.field .red:is(.zone, .garden, .alliance-area) { fill: var(--red); stroke: var(--red); }
+.field .blue:is(.zone, .garden, .alliance-area) { fill: var(--blue); stroke: var(--blue); }
+.field .hive polygon { fill: rgb(255 255 255 / 0.12); stroke-width: 1.2; stroke-linejoin: round; }
+.field .hive polyline { fill: none; stroke-width: 0.8; }
+.field .hive.red :is(polygon, polyline) { stroke: var(--red); }
+.field .hive.blue :is(polygon, polyline) { stroke: var(--blue); }
+.field .hive-frame { stroke: var(--field-wall); stroke-width: 1; }
+.field .beam { fill: #f2d16b; }
+.field .flower { fill: #f2c94c; stroke: #8a6d12; stroke-width: 0.6; }
 .robot polygon { stroke-width: 1; fill-opacity: 0.35; }
 .robot line { stroke-width: 1.2; stroke: var(--text); }
 .robot text { fill: var(--text); font: 700 4.5px Saira, sans-serif; text-anchor: middle; pointer-events: none; }
@@ -388,15 +401,97 @@ dialog .card > .row:last-child { justify-content: flex-end; }
 .path.red polyline { stroke: var(--red); }
 .path.blue polyline { stroke: var(--blue); }
 .path.faint { opacity: 0.5; }
+.path .leg { stroke: transparent; stroke-width: 7; cursor: copy; }
+.path.faint .leg { pointer-events: none; }
 .path .dot { cursor: grab; }
 .path .dot circle { fill: var(--surface); stroke-width: 0.8; }
 .path.red .dot circle { stroke: var(--red); }
 .path.blue .dot circle { stroke: var(--blue); }
 .path .dot.selected circle { fill: var(--accent); stroke: var(--accent); }
+.path .dot circle.hit { fill: transparent; stroke: none; }
+.turn-handle { cursor: grab; }
+.turn-handle line { stroke: var(--accent); stroke-width: 0.8; stroke-dasharray: 1.5 1; }
+.turn-handle circle { fill: var(--accent); stroke: var(--surface); stroke-width: 0.8; }
+.turn-handle circle.hit { fill: transparent; stroke: none; }
 .path .dot text { fill: var(--text); font: 700 3.4px Saira, sans-serif; text-anchor: middle; pointer-events: none; }
 
+/* Route editor: the buttons along the top, the setup (name and options) folded into one line, the field with its
+   totals and playback, the selected step's settings right under it, then the step list and the field key.
+   Computers put the field on the left and the rest beside it. */
+.editor-top { flex-wrap: nowrap; }
+.editor-top .row { flex-wrap: nowrap; }
+/* Tall enough that the page can always scroll the app's header away. */
+.editor { display: flex; flex-direction: column; gap: 12px; min-height: 100svh; }
+.editor-field, .editor-side, .editor-notes, .setup-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.editor-head { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.editor-head > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; cursor: pointer; list-style: none; }
+.editor-head > summary::-webkit-details-marker { display: none; }
+.editor-head > summary > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.editor-head[open] > summary > .link { display: none; }
+.setup-body { padding: 0 12px 12px; }
+@media (min-width: 900px) {
+  .editor { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto auto auto 1fr; align-items: start; gap: 16px 24px; }
+  .editor-field { grid-column: 1; grid-row: 1 / 4; }
+  .editor-notes { grid-column: 1; grid-row: 4; }
+  .editor-head, .step-edit, .editor-side { grid-column: 2; }
+}
 .editor-options { gap: 8px; }
 .editor-options #route-team { width: 96px; }
+.robot-button span { margin-left: 6px; font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+.totals { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; }
+.totals > div { display: flex; flex-direction: column; padding: 8px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.totals b { font-size: 1.5rem; line-height: 1.2; }
+.totals span { font-size: 0.8rem; color: var(--muted); }
+.totals .bar { display: block; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.totals .bar i { display: block; height: 100%; background: var(--accent-gradient); }
+.totals .over b { color: var(--danger); }
+.totals .over .bar i { background: var(--danger); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.legend svg.hive { width: 12px; height: 12px; fill: none; stroke: var(--red); stroke-width: 1.5; stroke-linejoin: round; }
+.legend .zone { background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); opacity: 0.5; }
+.legend .garden { height: 4px; background: linear-gradient(90deg, var(--red) 50%, var(--blue) 50%); }
+.legend .area { width: 4px; height: 14px; background: linear-gradient(var(--red) 50%, var(--blue) 50%); }
+.legend .flower { width: 10px; border-radius: 50%; background: #f2c94c; }
+.legend .middle { height: 0; border-top: 1.5px dashed var(--muted); }
+.step-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.step-row { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.step-row.selected { border-color: var(--accent); }
+.step-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: none; border: none; color: var(--text); font-weight: 400; text-align: left; white-space: normal; }
+.step-num { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; border: 2px solid; font-weight: 700; font-size: 0.85rem; }
+.step-num.red { border-color: var(--red); }
+.step-num.blue { border-color: var(--blue); }
+.step-row.selected .step-num { background: var(--accent); border-color: var(--accent); color: #111; }
+.step-title { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.step-points { flex: none; font-weight: 700; color: var(--accent); }
+.step-edit { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px; border: 1px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.step-edit > p { margin: 0; }
+.step-edit .choices { flex-wrap: nowrap; overflow-x: auto; }
+.step-edit .choices button { flex: none; }
+.step-last { justify-content: space-between; }
+.setting-label { font-size: 0.875rem; font-weight: 500; color: var(--muted); }
+.facing { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; max-width: 360px; }
+.choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.facing button { padding: 0; font-size: 1.1rem; }
+.facing button[data-turn-by] { font-size: 0.85rem; }
+.choices button { padding: 6px 12px; font-weight: 500; }
+.choices button span { margin-left: 4px; color: var(--muted); font-weight: 400; }
+:is(.facing, .choices) button[aria-pressed="true"] { background: rgb(255 165 61 / 0.15); border-color: var(--accent); color: var(--accent); }
+:is(.facing, .choices) button[aria-pressed="true"] span { color: var(--accent); }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper button { width: 44px; padding: 0; font-size: 1.2rem; }
+.stepper output { min-width: 56px; text-align: center; font-weight: 600; }
+/* Phones: slim totals, and the selected step's settings stay on screen above the tab bar while the field is in view. */
+@media (max-width: 899px) {
+  .totals > div { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 6px; padding: 4px 10px; }
+  .totals b { font-size: 1.1rem; }
+  .totals .bar { flex-basis: 100%; margin: 0 0 2px; }
+  .step-edit { gap: 8px; padding: 8px 12px; }
+}
+@media (max-width: 759px) {
+  .step-edit { position: sticky; z-index: 5; bottom: calc(72px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 16px rgb(0 0 0 / 0.3); }
+}
 .segmented { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: var(--raised); }
 .segmented button { min-height: 36px; padding: 4px 12px; background: none; color: var(--muted); }
 .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); }
